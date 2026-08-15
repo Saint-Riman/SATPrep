@@ -4,500 +4,74 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DSAT Master | Adaptive Test Engine</title>
-    <!-- Font Awesome for Icons -->
+    
+    <!-- External Libraries & Fonts -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts for typography similar to Bluebook -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    <style>
-        /* ==========================================================================
-           CSS VARIABLES & RESET
-           ========================================================================== */
-        :root {
-            --primary-blue: #005A9C;
-            --light-blue: #E6F0F9;
-            --dark-blue: #003366;
-            --accent-yellow: #FFD100;
-            --text-main: #1A1A1A;
-            --text-muted: #666666;
-            --bg-main: #F4F5F7;
-            --bg-panel: #FFFFFF;
-            --border-color: #D1D5DB;
-            --success-green: #10B981;
-            --danger-red: #EF4444;
-            --warning-orange: #F59E0B;
-            --font-sans: 'Inter', sans-serif;
-            --font-serif: 'Noto Serif', serif;
-            --test-header-height: 60px;
-            --test-footer-height: 70px;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: var(--font-sans);
-            background-color: var(--bg-main);
-            color: var(--text-main);
-            line-height: 1.6;
-            overflow-x: hidden;
-        }
-
-        button {
-            cursor: pointer;
-            font-family: var(--font-sans);
-            border: none;
-            outline: none;
-            transition: all 0.2s ease;
-        }
-
-        /* ==========================================================================
-           GLOBAL UTILITIES
-           ========================================================================== */
-        .hidden { display: none !important; }
-        .flex { display: flex; }
-        .flex-col { display: flex; flex-direction: column; }
-        .items-center { align-items: center; }
-        .justify-between { justify-content: space-between; }
-        .justify-center { justify-content: center; }
-        .text-center { text-align: center; }
-        .mt-4 { margin-top: 1rem; }
-        .mb-4 { margin-bottom: 1rem; }
-        
-        .btn-primary {
-            background-color: var(--primary-blue);
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: 4px;
-            font-weight: 600;
-            font-size: 1rem;
-        }
-        .btn-primary:hover { background-color: var(--dark-blue); }
-        
-        .btn-secondary {
-            background-color: white;
-            color: var(--primary-blue);
-            border: 1px solid var(--primary-blue);
-            padding: 0.75rem 1.5rem;
-            border-radius: 4px;
-            font-weight: 600;
-        }
-        .btn-secondary:hover { background-color: var(--light-blue); }
-
-        /* ==========================================================================
-           LAYOUTS: DASHBOARD
-           ========================================================================== */
-        #dashboard-view {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-
-        .dashboard-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid var(--border-color);
-        }
-
-        .upload-section {
-            background: var(--bg-panel);
-            padding: 3rem;
-            border-radius: 8px;
-            text-align: center;
-            border: 2px dashed var(--border-color);
-            margin-bottom: 2rem;
-            transition: border-color 0.3s;
-        }
-        .upload-section:hover { border-color: var(--primary-blue); }
-
-        .upload-icon {
-            font-size: 3rem;
-            color: var(--primary-blue);
-            margin-bottom: 1rem;
-        }
-
-        #file-input { display: none; }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: var(--bg-panel);
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            border-left: 4px solid var(--primary-blue);
-        }
-
-        /* ==========================================================================
-           LAYOUTS: BLUEBOOK TEST INTERFACE
-           ========================================================================== */
-        #test-view {
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            background-color: var(--bg-panel);
-        }
-
-        /* Test Header */
-        .test-header {
-            height: var(--test-header-height);
-            background-color: var(--bg-panel);
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 1.5rem;
-        }
-
-        .header-left, .header-right { flex: 1; }
-        .header-center { flex: 2; text-align: center; }
-
-        .timer-display {
-            font-size: 1.25rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-
-        .tool-btn {
-            background: none;
-            border: none;
-            font-size: 1.2rem;
-            color: var(--text-muted);
-            margin-left: 1rem;
-        }
-        .tool-btn:hover { color: var(--primary-blue); }
-
-        /* Test Content Area */
-        .test-body {
-            flex: 1;
-            display: flex;
-            overflow: hidden;
-        }
-
-        /* Split Screen (Reading/Writing) */
-        .split-screen {
-            display: flex;
-            width: 100%;
-        }
-
-        .passage-pane {
-            flex: 1;
-            padding: 2rem;
-            border-right: 1px solid var(--border-color);
-            overflow-y: auto;
-            font-family: var(--font-serif);
-            font-size: 1.1rem;
-            line-height: 1.8;
-        }
-
-        .question-pane {
-            flex: 1;
-            padding: 2rem;
-            overflow-y: auto;
-            background-color: var(--bg-main);
-        }
-
-        .question-text {
-            font-size: 1.1rem;
-            font-weight: 500;
-            margin-bottom: 1.5rem;
-        }
-
-        /* Multiple Choice Options */
-        .options-list {
-            list-style: none;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .option-item {
-            display: flex;
-            align-items: flex-start;
-            background: var(--bg-panel);
-            border: 2px solid var(--border-color);
-            border-radius: 8px;
-            padding: 1rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .option-item:hover { border-color: var(--primary-blue); }
-        .option-item.selected {
-            border-color: var(--primary-blue);
-            background-color: var(--light-blue);
-        }
-
-        .option-letter {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            border: 2px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            margin-right: 1rem;
-            flex-shrink: 0;
-        }
-
-        .option-item.selected .option-letter {
-            background-color: var(--primary-blue);
-            color: white;
-            border-color: var(--primary-blue);
-        }
-
-        .option-content {
-            font-family: var(--font-sans);
-            font-size: 1rem;
-            padding-top: 2px;
-        }
-
-        /* Math SPR (Student-Produced Response) Input */
-        .spr-input-container {
-            margin-top: 2rem;
-        }
-        .spr-input {
-            width: 100%;
-            max-width: 300px;
-            padding: 1rem;
-            font-size: 1.2rem;
-            border: 2px solid var(--border-color);
-            border-radius: 4px;
-        }
-
-        /* Test Footer */
-        .test-footer {
-            height: var(--test-footer-height);
-            background-color: var(--bg-panel);
-            border-top: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 1.5rem;
-        }
-
-        .nav-btn {
-            background-color: var(--primary-blue);
-            color: white;
-            border: none;
-            padding: 0.5rem 1.5rem;
-            border-radius: 20px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .nav-btn:disabled { background-color: var(--border-color); cursor: not-allowed; }
-
-        .question-navigator {
-            display: flex;
-            gap: 0.5rem;
-            overflow-x: auto;
-            padding-bottom: 5px;
-            max-width: 60vw;
-        }
-
-        .q-node {
-            width: 30px;
-            height: 30px;
-            border-radius: 4px;
-            border: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            background: white;
-        }
-        .q-node.active { border: 2px solid var(--text-main); }
-        .q-node.answered { background-color: var(--primary-blue); color: white; border-color: var(--primary-blue); }
-        .q-node.flagged { border-bottom: 4px solid var(--warning-orange); }
-
-        /* ==========================================================================
-           LAYOUTS: ANALYTICS & RESULTS
-           ========================================================================== */
-        #results-view {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-
-        .score-hero {
-            background: linear-gradient(135deg, var(--dark-blue), var(--primary-blue));
-            color: white;
-            padding: 3rem;
-            border-radius: 12px;
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-
-        .total-score {
-            font-size: 5rem;
-            font-weight: 700;
-            margin: 1rem 0;
-        }
-
-        .section-scores {
-            display: flex;
-            justify-content: center;
-            gap: 4rem;
-            margin-top: 2rem;
-        }
-
-        .ai-analysis-panel {
-            background: white;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            border-top: 4px solid var(--accent-yellow);
-        }
-
-        .weakness-tag {
-            display: inline-block;
-            padding: 0.5rem 1rem;
-            background: #FEE2E2;
-            color: var(--danger-red);
-            border-radius: 20px;
-            font-weight: 600;
-            margin-right: 0.5rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .expert-tip {
-            background: var(--light-blue);
-            border-left: 4px solid var(--primary-blue);
-            padding: 1.5rem;
-            margin-top: 1.5rem;
-            border-radius: 0 8px 8px 0;
-        }
-
-        .domain-breakdown {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-        }
-
-        .domain-card {
-            background: white;
-            border: 1px solid var(--border-color);
-            padding: 1.5rem;
-            border-radius: 8px;
-        }
-
-        .progress-bar-bg {
-            height: 10px;
-            background: var(--border-color);
-            border-radius: 5px;
-            margin-top: 0.5rem;
-            overflow: hidden;
-        }
-        
-        .progress-bar-fill {
-            height: 100%;
-            background: var(--primary-blue);
-            transition: width 1s ease-in-out;
-        }
-        
-        /* Modal Styles */
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        .modal-content {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            max-width: 500px;
-            width: 90%;
-        }
-
-        /* Loading Spinner */
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid var(--primary-blue);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
+    
+    <!-- Link to external CSS stylesheet -->
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
     <!-- ==========================================================================
-         DASHBOARD VIEW
+         DASHBOARD VIEW (Appears on launch)
          ========================================================================== -->
-    <div id="dashboard-view">
-        <div class="dashboard-header">
-            <div>
+    <main id="dashboard-view" class="view-container">
+        <header class="dashboard-header">
+            <div class="header-titles">
                 <h1>DSAT Prep Hub</h1>
                 <p class="text-muted">Upload practice tests and track your adaptive progress.</p>
             </div>
-            <button class="btn-secondary"><i class="fas fa-user-circle"></i> International Profile</button>
-        </div>
+            <button class="btn-secondary" aria-label="User Profile">
+                <i class="fas fa-user-circle"></i> International Profile
+            </button>
+        </header>
 
-        <div class="stats-grid">
+        <!-- User Statistics -->
+        <section class="stats-grid">
             <div class="stat-card">
                 <h3>Average Score</h3>
-                <h2 style="font-size: 2rem; color: var(--primary-blue);">1450</h2>
+                <h2 class="stat-highlight primary-text">1450</h2>
                 <p class="text-muted">Across 4 practice tests</p>
             </div>
             <div class="stat-card">
                 <h3>Target Score</h3>
-                <h2 style="font-size: 2rem; color: var(--text-main);">1520</h2>
+                <h2 class="stat-highlight">1520</h2>
                 <p class="text-muted">70 points to go</p>
             </div>
             <div class="stat-card">
                 <h3>Top Weakness</h3>
-                <h2 style="font-size: 1.5rem; color: var(--danger-red);">Craft & Structure</h2>
+                <h2 class="stat-highlight danger-text">Craft & Structure</h2>
                 <p class="text-muted">Focus on "Words in Context"</p>
             </div>
-        </div>
+        </section>
 
-        <div class="upload-section" id="drop-zone">
+        <!-- PDF Upload Zone -->
+        <section class="upload-section" id="drop-zone">
             <i class="fas fa-file-pdf upload-icon"></i>
             <h2>Upload Official Practice Test PDF</h2>
             <p class="text-muted mb-4">Our AI will parse the College Board PDF and convert it into a full Bluebook digital experience.</p>
-            <input type="file" id="file-input" accept="application/pdf">
-            <button class="btn-primary" onclick="document.getElementById('file-input').click()">
+            
+            <input type="file" id="file-input" accept="application/pdf" aria-label="Upload PDF">
+            <button class="btn-primary" id="upload-btn">
                 <i class="fas fa-upload"></i> Select PDF File
             </button>
+            
             <div id="upload-status" class="hidden mt-4">
                 <div class="loader"></div>
                 <p>AI Engine Parsing Document, Identifying Questions, and Configuring Adaptive Routing...</p>
             </div>
-        </div>
-    </div>
+        </section>
+    </main>
+
 
     <!-- ==========================================================================
-         BLUEBOOK TEST ENGINE VIEW (Initially Hidden)
+         BLUEBOOK TEST ENGINE VIEW (Hidden until test starts)
          ========================================================================== -->
-    <div id="test-view" class="hidden">
-        <!-- Header -->
+    <div id="test-view" class="view-container hidden">
+        <!-- Test Header (Timer and Tools) -->
         <header class="test-header">
             <div class="header-left">
                 <h3 id="section-title">Reading and Writing: Module 1</h3>
@@ -505,646 +79,135 @@
             <div class="header-center">
                 <div class="timer-display">
                     <i class="fas fa-clock"></i> <span id="time-remaining">32:00</span>
-                    <button id="hide-time-btn" class="tool-btn" style="font-size: 0.9rem;">Hide</button>
+                    <button id="hide-time-btn" class="tool-btn text-small">Hide</button>
                 </div>
             </div>
-            <div class="header-right" style="text-align: right;">
+            <div class="header-right text-right">
                 <button class="tool-btn" title="Annotate"><i class="fas fa-highlighter"></i></button>
-                <button class="tool-btn" title="Calculator" id="calc-btn" class="hidden"><i class="fas fa-calculator"></i></button>
+                <button class="tool-btn hidden" title="Calculator" id="calc-btn"><i class="fas fa-calculator"></i></button>
                 <button class="tool-btn" title="Desmos Graphing"><i class="fas fa-chart-line"></i></button>
                 <button class="tool-btn" title="Reference Sheet"><i class="fas fa-square-root-alt"></i></button>
-                <button class="btn-secondary" style="margin-left: 1rem; padding: 0.4rem 1rem;" onclick="TestEngine.endTest()">End Test</button>
+                <button class="btn-secondary ml-3 py-small" id="end-test-early-btn">End Test</button>
             </div>
         </header>
 
-        <!-- Body -->
-        <main class="test-body">
-            <!-- Reading/Writing Split Screen -->
+        <!-- Test Body (Passage and Questions) -->
+        <section class="test-body">
             <div class="split-screen" id="rw-layout">
-                <div class="passage-pane" id="passage-container">
-                    <!-- Passage injected dynamically -->
-                </div>
+                <!-- Left Pane: Reading Passage -->
+                <article class="passage-pane" id="passage-container">
+                    <!-- Passage text injected here by JS -->
+                </article>
+                
+                <!-- Right Pane: Questions and Options -->
                 <div class="question-pane">
                     <div class="question-text" id="question-container">
-                        <!-- Question text injected dynamically -->
+                        <!-- Question text injected here by JS -->
                     </div>
                     <div id="options-container">
-                        <!-- Options/Inputs injected dynamically -->
+                        <!-- Multiple choice options or Math grid-in injected here by JS -->
                     </div>
                 </div>
             </div>
-        </main>
+        </section>
 
-        <!-- Footer -->
+        <!-- Test Footer (Navigation) -->
         <footer class="test-footer">
-            <div style="display:flex; align-items:center; gap: 1rem;">
-                <span style="font-weight: 600;" id="question-number-display">Question 1 of 27</span>
-                <button class="tool-btn" style="margin:0; font-size: 0.9rem;" onclick="TestEngine.toggleFlag()">
+            <div class="footer-left">
+                <span class="font-bold" id="question-number-display">Question 1 of 27</span>
+                <button class="tool-btn m-0 text-small" id="flag-btn">
                     <i class="far fa-bookmark" id="flag-icon"></i> Mark for Review
                 </button>
             </div>
             
-            <div class="question-navigator" id="nav-nodes">
-                <!-- Navigation nodes generated dynamically -->
-            </div>
+            <nav class="question-navigator" id="nav-nodes" aria-label="Question Navigation">
+                <!-- Question node buttons generated dynamically -->
+            </nav>
 
-            <div>
-                <button class="nav-btn" id="next-btn" onclick="TestEngine.nextQuestion()">Next <i class="fas fa-chevron-right"></i></button>
+            <div class="footer-right">
+                <button class="nav-btn" id="next-btn">Next <i class="fas fa-chevron-right"></i></button>
             </div>
         </footer>
     </div>
 
-    <!-- ==========================================================================
-         RESULTS & AI ANALYTICS VIEW (Initially Hidden)
-         ========================================================================== -->
-    <div id="results-view" class="hidden">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2rem;">
-            <h2>Test Results & AI Analysis</h2>
-            <button class="btn-primary" onclick="UI.showDashboard()">Return to Dashboard</button>
-        </div>
 
-        <div class="score-hero">
+    <!-- ==========================================================================
+         RESULTS & AI ANALYTICS VIEW (Hidden until test ends)
+         ========================================================================== -->
+    <main id="results-view" class="view-container hidden">
+        <header class="results-header flex-between mb-4">
+            <h2>Test Results & AI Analysis</h2>
+            <button class="btn-primary" id="return-dashboard-btn">Return to Dashboard</button>
+        </header>
+
+        <!-- Score Overview -->
+        <section class="score-hero">
             <p>Total SAT Score</p>
             <div class="total-score" id="final-total-score">1480</div>
             <p>98th Percentile Nationally</p>
             
             <div class="section-scores">
-                <div>
-                    <h3 style="color:#A5F3FC;">Reading & Writing</h3>
-                    <h2 style="font-size: 2.5rem;" id="final-rw-score">720</h2>
+                <div class="score-box">
+                    <h3 class="highlight-cyan">Reading & Writing</h3>
+                    <h2 class="section-score-val" id="final-rw-score">720</h2>
                 </div>
-                <div>
-                    <h3 style="color:#A5F3FC;">Math</h3>
-                    <h2 style="font-size: 2.5rem;" id="final-math-score">760</h2>
+                <div class="score-box">
+                    <h3 class="highlight-cyan">Math</h3>
+                    <h2 class="section-score-val" id="final-math-score">760</h2>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div class="ai-analysis-panel">
-            <div style="display: flex; align-items:center; gap: 1rem; margin-bottom: 1.5rem;">
-                <i class="fas fa-robot" style="font-size: 2rem; color: var(--primary-blue);"></i>
-                <h3 style="font-size: 1.5rem;">AI Weakness Diagnostic</h3>
+        <!-- AI Weakness Analysis -->
+        <section class="ai-analysis-panel">
+            <div class="flex-center-gap mb-3">
+                <i class="fas fa-robot text-huge primary-text"></i>
+                <h3 class="text-large">AI Weakness Diagnostic</h3>
             </div>
             <p class="mb-4">Based on your adaptive path and specific miss patterns, our engine has identified exactly where you are losing points.</p>
             
-            <div id="weakness-tags">
-                <!-- Tags generated dynamically -->
+            <div id="weakness-tags" class="mb-4">
+                <!-- AI Weakness tags generated dynamically -->
             </div>
 
             <div class="expert-tip" id="expert-tip-container">
-                <!-- Dynamic Tips -->
+                <!-- AI Expert Tips injected dynamically -->
             </div>
-        </div>
+        </section>
 
-        <div class="domain-breakdown">
+        <!-- Domain Breakdown -->
+        <section class="domain-breakdown">
             <div class="domain-card">
                 <h3>Information and Ideas</h3>
-                <p class="text-muted" style="font-size: 0.9rem;">Command of Evidence (Textual & Quantitative), Central Ideas</p>
-                <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: 75%; background: var(--warning-orange);"></div></div>
-                <p style="text-align:right; font-size: 0.85rem; margin-top: 5px;">Needs Improvement</p>
+                <p class="text-muted text-small">Command of Evidence (Textual & Quantitative), Central Ideas</p>
+                <div class="progress-bar-bg"><div class="progress-bar-fill warning-bg" style="width: 75%;"></div></div>
+                <p class="text-right text-small mt-1">Needs Improvement</p>
             </div>
             <div class="domain-card">
                 <h3>Craft and Structure</h3>
-                <p class="text-muted" style="font-size: 0.9rem;">Words in Context, Text Structure, Cross-Text Connections</p>
-                <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: 95%; background: var(--success-green);"></div></div>
-                <p style="text-align:right; font-size: 0.85rem; margin-top: 5px;">Excellent</p>
+                <p class="text-muted text-small">Words in Context, Text Structure, Cross-Text Connections</p>
+                <div class="progress-bar-bg"><div class="progress-bar-fill success-bg" style="width: 95%;"></div></div>
+                <p class="text-right text-small mt-1">Excellent</p>
             </div>
             <div class="domain-card">
                 <h3>Algebra</h3>
-                <p class="text-muted" style="font-size: 0.9rem;">Linear equations, systems, functions</p>
-                <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: 100%; background: var(--success-green);"></div></div>
-                <p style="text-align:right; font-size: 0.85rem; margin-top: 5px;">Perfect</p>
+                <p class="text-muted text-small">Linear equations, systems, functions</p>
+                <div class="progress-bar-bg"><div class="progress-bar-fill success-bg" style="width: 100%;"></div></div>
+                <p class="text-right text-small mt-1">Perfect</p>
             </div>
             <div class="domain-card">
                 <h3>Advanced Math</h3>
-                <p class="text-muted" style="font-size: 0.9rem;">Nonlinear equations, polynomials, radicals</p>
-                <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: 80%; background: var(--primary-blue);"></div></div>
-                <p style="text-align:right; font-size: 0.85rem; margin-top: 5px;">On Track</p>
+                <p class="text-muted text-small">Nonlinear equations, polynomials, radicals</p>
+                <div class="progress-bar-bg"><div class="progress-bar-fill primary-bg" style="width: 80%;"></div></div>
+                <p class="text-right text-small mt-1">On Track</p>
             </div>
-        </div>
-    </div>
+        </section>
+    </main>
 
-
-    <!-- ==========================================================================
-         JAVASCRIPT LOGIC
-         ========================================================================== -->
-    <script>
-        /**
-         * SAT APP ARCHITECTURE
-         * 1. Data Models: SAT Rubrics, Questions, AI Tips
-         * 2. PDF Parser Mock: Simulates parsing CB PDFs into JSON
-         * 3. Test Engine: Manages timer, adaptive module routing, navigation
-         * 4. Scoring Engine: IRT mapping and curve calculation
-         * 5. AI Analyzer: Generates insights based on tag-level performance
-         * 6. UI Controller: DOM manipulation
-         */
-
-        // --- 1. DATA MODELS & CONSTANTS ---
-        const SAT_DOMAINS = {
-            RW: ["Information and Ideas", "Craft and Structure", "Expression of Ideas", "Standard English Conventions"],
-            MATH: ["Algebra", "Advanced Math", "Problem-Solving and Data Analysis", "Geometry and Trigonometry"]
-        };
-
-        const EXPERT_TIPS = {
-            "Textual Evidence": "Perfect Scorer Tip: For Textual Evidence questions, never read the options first. Read the claim in the prompt, identify exactly what needs to be proven, and formulate your own idea of what the quote must say. Then, find the choice that strictly matches without requiring logical leaps.",
-            "Words in Context": "Perfect Scorer Tip: Treat the blank as a math variable. Read the sentence and put your own simple word in the blank (like 'bad' or 'changing'). Only then look at the choices and eliminate anything that doesn't match your simple word's exact connotation.",
-            "Transitions": "Perfect Scorer Tip: Cover up the transition word. Read the sentence before, then read the sentence after. Ask yourself: Are these sentences agreeing (therefore/thus), disagreeing (however/conversely), or adding information (furthermore)?",
-            "Advanced Math": "Perfect Scorer Tip: When dealing with complex vertex form quadratics, don't expand. Use the axis of symmetry formula (-b/2a) or manipulate the vertex form directly. Desmos is your best friend here—graph it instantly to verify vertex coordinates."
-        };
-
-        // --- 2. MOCK PARSER ---
-        // In a real app, PDF.js would extract text, and an LLM/Regex pipeline would structure it.
-        // We simulate the output of this parser for a full 2-stage adaptive test.
-        class PDFProcessor {
-            static async parseFile(file) {
-                return new Promise(resolve => {
-                    setTimeout(() => {
-                        resolve(this.generateMockTestBank());
-                    }, 2500); // Simulate processing time
-                });
-            }
-
-            static generateMockTestBank() {
-                // Generates a structured test object mirroring the real DSAT structure.
-                // RW Module 1 (Baseline), RW Module 2A (Easy), RW Module 2B (Hard), etc.
-                return {
-                    id: "test_" + Date.now(),
-                    sections: {
-                        RW: {
-                            module1: this.generateQuestions(27, 'RW', 'mixed'),
-                            module2Easy: this.generateQuestions(27, 'RW', 'easy'),
-                            module2Hard: this.generateQuestions(27, 'RW', 'hard')
-                        },
-                        MATH: {
-                            module1: this.generateQuestions(22, 'MATH', 'mixed'),
-                            module2Easy: this.generateQuestions(22, 'MATH', 'easy'),
-                            module2Hard: this.generateQuestions(22, 'MATH', 'hard')
-                        }
-                    }
-                };
-            }
-
-            static generateQuestions(count, type, difficulty) {
-                let qs = [];
-                for(let i=1; i<=count; i++) {
-                    let domain = type === 'RW' 
-                        ? SAT_DOMAINS.RW[i % 4] 
-                        : SAT_DOMAINS.MATH[i % 4];
-                    
-                    let specificTag = domain === "Information and Ideas" ? "Textual Evidence" : 
-                                      domain === "Craft and Structure" ? "Words in Context" : "General";
-
-                    qs.push({
-                        id: `${type}_${difficulty}_${i}`,
-                        number: i,
-                        domain: domain,
-                        tag: specificTag,
-                        difficulty: difficulty,
-                        passage: type === 'RW' ? `This is a simulated passage for ${domain}. In the real application, the PDF parser extracts the literature, history, or science text exactly as formatted by the College Board. The text usually spans roughly 50 to 150 words per question on the digital SAT.` : null,
-                        text: type === 'RW' ? `Based on the text, what is true about the simulated passage?` : `If $3x + 4 = 19$, what is the value of $6x + 8$?`,
-                        type: "MCQ", // Multiple Choice Question
-                        options: [
-                            "Option A represents a plausible distractor.",
-                            "Option B is the correct answer structurally.",
-                            "Option C is a reversed causality trap.",
-                            "Option D is out of scope."
-                        ],
-                        correctAnswer: 1 // index 1 = Option B
-                    });
-                }
-                return qs;
-            }
-        }
-
-        // --- 3. TEST ENGINE ---
-        class SATTestEngine {
-            constructor() {
-                this.testData = null;
-                this.currentState = {
-                    section: 'RW', // 'RW' or 'MATH'
-                    module: 1,     // 1 or 2
-                    isHardModule: false,
-                    currentIndex: 0,
-                    timeRemaining: 0,
-                    timerInterval: null
-                };
-                this.userResponses = {
-                    RW: { module1: {}, module2: {} },
-                    MATH: { module1: {}, module2: {} }
-                };
-                this.flags = {
-                    RW: { module1: new Set(), module2: new Set() },
-                    MATH: { module1: new Set(), module2: new Set() }
-                };
-            }
-
-            startTest(parsedData) {
-                this.testData = parsedData;
-                this.currentState.section = 'RW';
-                this.currentState.module = 1;
-                this.loadModule();
-                UI.showTestView();
-            }
-
-            getCurrentQuestions() {
-                const sec = this.currentState.section;
-                if (this.currentState.module === 1) {
-                    return this.testData.sections[sec].module1;
-                } else {
-                    return this.currentState.isHardModule 
-                        ? this.testData.sections[sec].module2Hard 
-                        : this.testData.sections[sec].module2Easy;
-                }
-            }
-
-            getCurrentResponseMap() {
-                return this.userResponses[this.currentState.section][`module${this.currentState.module}`];
-            }
-
-            getCurrentFlagsSet() {
-                return this.flags[this.currentState.section][`module${this.currentState.module}`];
-            }
-
-            loadModule() {
-                this.currentState.currentIndex = 0;
-                let isRW = this.currentState.section === 'RW';
-                
-                // Times: RW = 32 mins, Math = 35 mins per module
-                this.currentState.timeRemaining = isRW ? 32 * 60 : 35 * 60; 
-                
-                document.getElementById('section-title').innerText = 
-                    `${isRW ? 'Reading and Writing' : 'Math'}: Module ${this.currentState.module}`;
-                
-                document.getElementById('calc-btn').classList.toggle('hidden', isRW);
-
-                this.renderNodes();
-                this.renderQuestion();
-                this.startTimer();
-            }
-
-            startTimer() {
-                clearInterval(this.currentState.timerInterval);
-                this.updateTimerDisplay();
-                this.currentState.timerInterval = setInterval(() => {
-                    this.currentState.timeRemaining--;
-                    this.updateTimerDisplay();
-                    if (this.currentState.timeRemaining <= 0) {
-                        this.handleModuleEnd();
-                    }
-                }, 1000);
-            }
-
-            updateTimerDisplay() {
-                const mins = Math.floor(this.currentState.timeRemaining / 60);
-                const secs = this.currentState.timeRemaining % 60;
-                document.getElementById('time-remaining').innerText = 
-                    `${mins}:${secs.toString().padStart(2, '0')}`;
-            }
-
-            renderNodes() {
-                const container = document.getElementById('nav-nodes');
-                container.innerHTML = '';
-                const questions = this.getCurrentQuestions();
-                const responses = this.getCurrentResponseMap();
-                const flags = this.getCurrentFlagsSet();
-
-                questions.forEach((q, index) => {
-                    const node = document.createElement('div');
-                    node.className = 'q-node';
-                    node.innerText = q.number;
-                    if (index === this.currentState.currentIndex) node.classList.add('active');
-                    if (responses[q.id] !== undefined) node.classList.add('answered');
-                    if (flags.has(q.id)) node.classList.add('flagged');
-                    
-                    node.onclick = () => {
-                        this.currentState.currentIndex = index;
-                        this.renderQuestion();
-                        this.renderNodes();
-                    };
-                    container.appendChild(node);
-                });
-            }
-
-            renderQuestion() {
-                const questions = this.getCurrentQuestions();
-                const q = questions[this.currentState.currentIndex];
-                const responses = this.getCurrentResponseMap();
-                const flags = this.getCurrentFlagsSet();
-
-                document.getElementById('question-number-display').innerText = 
-                    `Question ${q.number} of ${questions.length}`;
-
-                // Flag icon state
-                const flagIcon = document.getElementById('flag-icon');
-                flagIcon.className = flags.has(q.id) ? 'fas fa-bookmark' : 'far fa-bookmark';
-                if(flags.has(q.id)) flagIcon.style.color = 'var(--warning-orange)';
-                else flagIcon.style.color = 'inherit';
-
-                // Handle Layout (Passage vs No Passage)
-                const passageContainer = document.getElementById('passage-container');
-                if (q.passage) {
-                    passageContainer.style.display = 'block';
-                    passageContainer.innerHTML = `<p>${q.passage}</p>`;
-                } else {
-                    passageContainer.style.display = 'none';
-                }
-
-                // Question Text
-                document.getElementById('question-container').innerHTML = `<p>${q.text}</p>`;
-
-                // Options
-                const optsContainer = document.getElementById('options-container');
-                optsContainer.innerHTML = '';
-                const letters = ['A', 'B', 'C', 'D'];
-
-                if (q.type === 'MCQ') {
-                    const list = document.createElement('ul');
-                    list.className = 'options-list';
-                    q.options.forEach((optText, index) => {
-                        const li = document.createElement('li');
-                        li.className = 'option-item';
-                        if (responses[q.id] === index) li.classList.add('selected');
-                        
-                        li.innerHTML = `
-                            <div class="option-letter">${letters[index]}</div>
-                            <div class="option-content">${optText}</div>
-                        `;
-                        li.onclick = () => {
-                            responses[q.id] = index;
-                            this.renderQuestion(); // Re-render to show selection
-                            this.renderNodes();    // Update bottom nav colors
-                        };
-                        list.appendChild(li);
-                    });
-                    optsContainer.appendChild(list);
-                } else {
-                    // SPR Input (Math Grid-in)
-                    optsContainer.innerHTML = `
-                        <div class="spr-input-container">
-                            <input type="text" class="spr-input" placeholder="Enter your answer" 
-                                value="${responses[q.id] || ''}"
-                                onchange="TestEngine.saveSPR(this.value, '${q.id}')">
-                        </div>
-                    `;
-                }
-
-                // Update Next Button State
-                const nextBtn = document.getElementById('next-btn');
-                if (this.currentState.currentIndex === questions.length - 1) {
-                    nextBtn.innerHTML = `End Module <i class="fas fa-flag-checkered"></i>`;
-                } else {
-                    nextBtn.innerHTML = `Next <i class="fas fa-chevron-right"></i>`;
-                }
-            }
-
-            saveSPR(value, qId) {
-                const responses = this.getCurrentResponseMap();
-                responses[qId] = value;
-                this.renderNodes();
-            }
-
-            toggleFlag() {
-                const q = this.getCurrentQuestions()[this.currentState.currentIndex];
-                const flags = this.getCurrentFlagsSet();
-                if (flags.has(q.id)) {
-                    flags.delete(q.id);
-                } else {
-                    flags.add(q.id);
-                }
-                this.renderQuestion();
-                this.renderNodes();
-            }
-
-            nextQuestion() {
-                const questions = this.getCurrentQuestions();
-                if (this.currentState.currentIndex < questions.length - 1) {
-                    this.currentState.currentIndex++;
-                    this.renderQuestion();
-                    this.renderNodes();
-                } else {
-                    this.handleModuleEnd();
-                }
-            }
-
-            handleModuleEnd() {
-                clearInterval(this.currentState.timerInterval);
-                
-                if (this.currentState.module === 1) {
-                    // Calculate routing score for Adaptive Module 2
-                    const rawScore = this.calculateRawScore(this.getCurrentQuestions(), this.getCurrentResponseMap());
-                    const percent = rawScore / this.getCurrentQuestions().length;
-                    
-                    // Route to Hard module if > 60% correct
-                    this.currentState.isHardModule = percent > 0.6;
-                    this.currentState.module = 2;
-                    alert(`Module 1 Complete. Preparing Module 2 (${this.currentState.isHardModule ? 'Harder' : 'Easier'} routing)...`);
-                    this.loadModule();
-                } else {
-                    // Module 2 finished
-                    if (this.currentState.section === 'RW') {
-                        alert("Reading and Writing Section Complete. Moving to Math.");
-                        this.currentState.section = 'MATH';
-                        this.currentState.module = 1;
-                        this.loadModule();
-                    } else {
-                        alert("Test Complete! Calculating your score.");
-                        this.endTest();
-                    }
-                }
-            }
-
-            calculateRawScore(questions, responses) {
-                let correct = 0;
-                questions.forEach(q => {
-                    if (responses[q.id] == q.correctAnswer) correct++;
-                });
-                return correct;
-            }
-
-            endTest() {
-                clearInterval(this.currentState.timerInterval);
-                const results = ScoringEngine.calculateFinalScore(this.testData, this.userResponses);
-                AnalyticsEngine.generateReport(this.testData, this.userResponses, results);
-                UI.showResultsView();
-            }
-        }
-
-        // --- 4. SCORING ENGINE ---
-        class ScoringEngine {
-            static calculateFinalScore(testData, userResponses) {
-                // Simplified IRT/Curve Scoring algorithm mimicking College Board
-                // Base points + (Module 1 performance * weight) + (Module 2 performance * weight depending on difficulty)
-                
-                const scoreSection = (sectionStr) => {
-                    const m1Qs = testData.sections[sectionStr].module1;
-                    const m1Resp = userResponses[sectionStr].module1;
-                    let m1Correct = 0;
-                    m1Qs.forEach(q => { if(m1Resp[q.id] == q.correctAnswer) m1Correct++; });
-                    const m1Percent = m1Qs.length > 0 ? m1Correct / m1Qs.length : 0;
-
-                    // Determine which module 2 they took based on our internal logic
-                    const isHard = m1Percent > 0.6;
-                    const m2Qs = isHard ? testData.sections[sectionStr].module2Hard : testData.sections[sectionStr].module2Easy;
-                    const m2Resp = userResponses[sectionStr].module2;
-                    let m2Correct = 0;
-                    m2Qs.forEach(q => { if(m2Resp[q.id] == q.correctAnswer) m2Correct++; });
-                    const m2Percent = m2Qs.length > 0 ? m2Correct / m2Qs.length : 0;
-
-                    // College board curve approximation:
-                    // Max 800. Min 200.
-                    // Hard module allows access to 800. Easy module caps around 600.
-                    let score = 200;
-                    if (isHard) {
-                        // Max potential
-                        score = 400 + (m1Percent * 200) + (m2Percent * 200);
-                    } else {
-                        // Capped potential
-                        score = 200 + (m1Percent * 200) + (m2Percent * 180);
-                    }
-                    
-                    // Round to nearest 10
-                    return Math.min(800, Math.max(200, Math.round(score / 10) * 10));
-                };
-
-                const rwScore = scoreSection('RW');
-                const mathScore = scoreSection('MATH');
-
-                return {
-                    rw: rwScore,
-                    math: mathScore,
-                    total: rwScore + mathScore
-                };
-            }
-        }
-
-        // --- 5. AI ANALYTICS ENGINE ---
-        class AnalyticsEngine {
-            static generateReport(testData, userResponses, scoreData) {
-                // Update DOM elements
-                document.getElementById('final-total-score').innerText = scoreData.total;
-                document.getElementById('final-rw-score').innerText = scoreData.rw;
-                document.getElementById('final-math-score').innerText = scoreData.math;
-
-                // Analyze Weaknesses based on Tags
-                const missedTags = {};
-                
-                const analyzeModule = (qs, resps) => {
-                    qs.forEach(q => {
-                        if (resps[q.id] != q.correctAnswer) {
-                            missedTags[q.tag] = (missedTags[q.tag] || 0) + 1;
-                        }
-                    });
-                };
-
-                // For simplicity in this demo, analyze Module 1 of both sections
-                analyzeModule(testData.sections.RW.module1, userResponses.RW.module1);
-                analyzeModule(testData.sections.MATH.module1, userResponses.MATH.module1);
-
-                // Sort and find top weaknesses
-                const sortedWeaknesses = Object.entries(missedTags).sort((a,b) => b[1] - a[1]);
-                
-                const tagContainer = document.getElementById('weakness-tags');
-                tagContainer.innerHTML = '';
-                
-                const tipContainer = document.getElementById('expert-tip-container');
-                tipContainer.innerHTML = '';
-
-                if (sortedWeaknesses.length > 0) {
-                    // Display up to 3 weakness tags
-                    sortedWeaknesses.slice(0, 3).forEach(([tag, count]) => {
-                        const span = document.createElement('span');
-                        span.className = 'weakness-tag';
-                        span.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${tag} (${count} missed)`;
-                        tagContainer.appendChild(span);
-                    });
-
-                    // Grab the tip for the top weakness
-                    const topWeakness = sortedWeaknesses[0][0];
-                    const tip = EXPERT_TIPS[topWeakness] || "Review core concepts for this topic and take untimed practice sets to improve accuracy before speeding up.";
-                    
-                    tipContainer.innerHTML = `
-                        <h4 style="color: var(--dark-blue); margin-bottom: 0.5rem;"><i class="fas fa-lightbulb" style="color: var(--accent-yellow);"></i> Target Area: ${topWeakness}</h4>
-                        <p>${tip}</p>
-                    `;
-                } else {
-                    tagContainer.innerHTML = `<span class="weakness-tag" style="background: #D1FAE5; color: var(--success-green);">Perfect Score! No major weaknesses.</span>`;
-                }
-            }
-        }
-
-        // --- 6. UI CONTROLLER ---
-        class UIController {
-            constructor() {
-                this.views = {
-                    dashboard: document.getElementById('dashboard-view'),
-                    test: document.getElementById('test-view'),
-                    results: document.getElementById('results-view')
-                };
-                
-                this.setupEventListeners();
-            }
-
-            hideAllViews() {
-                Object.values(this.views).forEach(v => v.classList.add('hidden'));
-            }
-
-            showDashboard() {
-                this.hideAllViews();
-                this.views.dashboard.classList.remove('hidden');
-            }
-
-            showTestView() {
-                this.hideAllViews();
-                this.views.test.classList.remove('hidden');
-                // Entering full screen mode to simulate real test environment (optional)
-                try { document.documentElement.requestFullscreen(); } catch(e) {}
-            }
-
-            showResultsView() {
-                this.hideAllViews();
-                this.views.results.classList.remove('hidden');
-                try { document.exitFullscreen(); } catch(e) {}
-            }
-
-            setupEventListeners() {
-                // File Upload Handling
-                const fileInput = document.getElementById('file-input');
-                fileInput.addEventListener('change', async (e) => {
-                    const file = e.target.files[0];
-                    if (file && file.type === 'application/pdf') {
-                        document.getElementById('upload-status').classList.remove('hidden');
-                        
-                        // Pass to Parser
-                        const parsedTest = await PDFProcessor.parseFile(file);
-                        
-                        document.getElementById('upload-status').classList.add('hidden');
-                        
-                        // Start Engine
-                        TestEngine.startTest(parsedTest);
-                    } else {
-                        alert("Please upload a valid PDF file.");
-                    }
-                });
-
-                // Timer Hide/Show
-                const hideTimeBtn = document.getElementById('hide-time-btn');
-                const timeRemainingSpan = document.getElementById('time-remaining');
-                hideTimeBtn.addEventListener('click', () => {
-                    if (timeRemainingSpan.style.visibility === 'hidden') {
-                        timeRemainingSpan.style.visibility = 'visible';
-                        hideTimeBtn.innerText = 'Hide';
-                    } else {
-                        timeRemainingSpan.style.visibility = 'hidden';
-                        hideTimeBtn.innerText = 'Show';
-                    }
-                });
-            }
-        }
-
-        // --- INITIALIZATION ---
-        const TestEngine = new SATTestEngine();
-        const UI = new UIController();
-
-    </script>
+    <!-- JavaScript Files -->
+    <script src="parser.js"></script>
+    <script src="engine.js"></script>
+    <script src="analytics.js"></script>
+    <script src="ui.js"></script>
 </body>
 </html>
