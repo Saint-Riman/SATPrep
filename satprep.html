@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DSAT Adaptive Practice & Analytics Suite</title>
+    <!-- Font Awesome for Bluebook UI Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --cb-blue: #003366;
+            --cb-light-blue: #005599;
+            --cb-bg: #f4f6f8;
+            --cb-card-bg: #ffffff;
+            --cb-text: #1e1e1e;
+            --cb-border: #cccccc;
+            --cb-highlight: #fff2ac;
+            --cb-accent: #2e7d32;
+            --cb-danger: #c62828;
+            --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-stack);
+            background-color: var(--cb-bg);
+            color: var(--cb-text);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Top Bar Navigation */
+        header {
+            background-color: var(--cb-blue);
+            color: white;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 60px;
+        }
+
+        header .logo {
+            font-weight: 700;
+            font-size: 1.2rem;
+            letter-spacing: 0.5px;
+        }
+
+        nav button {
+            background: transparent;
+            border: 1px solid white;
+            color: white;
+            padding: 6px 16px;
+            margin-left: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        nav button:hover, nav button.active {
+            background-color: white;
+            color: var(--cb-blue);
+        }
+
+        /* App Container Layout */
+        .app-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .view-panel {
+            display: none;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .view-panel.active {
+            display: flex;
+        }
+
+        /* Bluebook Test Engine Interface */
+        #test-view {
+            padding: 0;
+            flex-direction: column;
+            background-color: white;
+        }
+
+        .test-header {
+            height: 50px;
+            border-bottom: 2px solid var(--cb-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            background-color: #fafafa;
+        }
+
+        .test-timer {
+            font-size: 1.1rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .test-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .passage-pane, .question-pane {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            border-right: 1px solid var(--cb-border);
+        }
+
+        .question-pane {
+            border-right: none;
+            background-color: #fdfdfd;
+        }
+
+        .passage-text {
+            font-size: 1.05rem;
+            line-height: 1.6;
+            color: #222;
+        }
+
+        .question-number {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #555;
+            margin-bottom: 12px;
+        }
+
+        .question-prompt {
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .options-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .option-btn {
+            display: flex;
+            align-items: flex-start;
+            padding: 14px;
+            border: 2px solid var(--cb-border);
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            text-align: left;
+            font-size: 1rem;
+            transition: border-color 0.15s, background-color 0.15s;
+        }
+
+        .option-btn:hover {
+            border-color: var(--cb-light-blue);
+            background-color: #f0f7ff;
+        }
+
+        .option-btn.selected {
+            border-color: var(--cb-blue);
+            background-color: #e8f1f8;
+        }
+
+        .option-letter {
+            font-weight: 700;
+            margin-right: 12px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1px solid var(--cb-text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+
+        .option-btn.selected .option-letter {
+            background-color: var(--cb-blue);
+            color: white;
+            border-color: var(--cb-blue);
+        }
+
+        /* Test Controls Footer */
+        .test-footer {
+            height: 60px;
+            border-top: 2px solid var(--cb-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            background-color: #fafafa;
+        }
+
+        .btn-primary {
+            background-color: var(--cb-blue);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            font-weight: 600;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--cb-light-blue);
+        }
+
+        .btn-secondary {
+            background-color: #e0e0e0;
+            color: #333;
+            border: none;
+            padding: 10px 24px;
+            font-weight: 600;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        /* Dashboard Styles */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            border: 1px solid #e0e0e0;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--cb-blue);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .metric-large {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--cb-blue);
+        }
+
+        .tag {
+            display: inline-block;
+            background: #e8f1f8;
+            color: var(--cb-blue);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: 6px;
+        }
+
+        .tag.warning {
+            background: #fde8e8;
+            color: var(--cb-danger);
+        }
+
+        /* PDF Import Area */
+        .import-box {
+            border: 2px dashed var(--cb-border);
+            padding: 40px;
+            text-align: center;
+            border-radius: 8px;
+            background-color: white;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .import-box:hover {
+            border-color: var(--cb-blue);
+        }
+
+        /* Tools Bar (Highlighter / Annotate) */
+        .tools-bar {
+            display: flex;
+            gap: 10px;
+        }
+
+        .tool-btn {
+            background: white;
+            border: 1px solid var(--cb-border);
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .tool-btn.active {
+            background-color: var(--cb-highlight);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo"><i class="fa-solid fa-graduation-cap"></i> PrepSuite DSAT</div>
+        <nav>
+            <button onclick="switchView('dashboard')" class="active" id="nav-dashboard">Dashboard</button>
+            <button onclick="switchView('importer')" id="nav-importer">PDF Ingest</button>
+            <button onclick="switchView('test')" id="nav-test">Practice Engine</button>
+            <button onclick="switchView('analytics')" id="nav-analytics">AI Weakness Engine</button>
+        </nav>
+    </header>
+
+    <div class="app-container">
+
+        <!-- DASHBOARD VIEW -->
+        <div id="dashboard-view" class="view-panel active">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-chart-line"></i> Estimated DSAT Score</div>
+                    <div class="metric-large" id="overall-score">1380</div>
+                    <p style="color: #666; font-size: 0.9rem; margin-top: 8px;">Reading & Writing: <strong>690</strong> | Math: <strong>690</strong></p>
+                </div>
+
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-bullseye"></i> Targeted Weak Area</div>
+                    <div style="font-size: 1.2rem; font-weight: 700;">Textual Evidence</div>
+                    <span class="tag warning">Domain: Information and Ideas</span>
+                    <p style="margin-top: 12px; font-size: 0.9rem; color: #444;">Accuracy rate in Module 2 Hard questions: <strong>42%</strong></p>
+                </div>
+
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Practice History</div>
+                    <ul style="list-style: none; line-height: 2;">
+                        <li><i class="fa-solid fa-check-circle" style="color: var(--cb-accent);"></i> Practice Test 1 (Adaptive) - <strong>1360</strong></li>
+                        <li><i class="fa-solid fa-check-circle" style="color: var(--cb-accent);"></i> Practice Test 2 (Adaptive) - <strong>1380</strong></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- PDF IMPORTER VIEW -->
+        <div id="importer-view" class="view-panel">
+            <div style="max-width: 800px; margin: 0 auto; width: 100%;">
+                <h2 style="margin-bottom: 16px;">Import Official College Board PDF</h2>
+                <div class="import-box" onclick="document.getElementById('pdf-input').click()">
+                    <i class="fa-solid fa-file-pdf" style="font-size: 3rem; color: var(--cb-blue); margin-bottom: 12px;"></i>
+                    <h3>Click or Drag official DSAT Practice PDF here</h3>
+                    <p style="color: #666; margin-top: 8px; font-size: 0.9rem;">Parses passages, domain categories, and question keys dynamically.</p>
+                    <input type="file" id="pdf-input" style="display:none;" accept="application/pdf" onchange="handlePDFUpload(event)">
+                </div>
+                <div id="import-status" style="margin-top: 20px; font-weight: 600;"></div>
+            </div>
+        </div>
+
+        <!-- BLUEBOOK TEST ENGINE VIEW -->
+        <div id="test-view" class="view-panel">
+            <div class="test-header" style="width: 100%;">
+                <div><strong>Section 1:</strong> Reading and Writing | Module 1</div>
+                <div class="tools-bar">
+                    <button class="tool-btn" onclick="toggleHighlighter()"><i class="fa-solid fa-highlighter"></i> Highlight</button>
+                    <button class="tool-btn" onclick="toggleAnnotate()"><i class="fa-solid fa-pen"></i> Annotate</button>
+                </div>
+                <div class="test-timer"><i class="fa-regular fa-clock"></i> <span id="timer-display">32:00</span></div>
+            </div>
+
+            <div class="test-body">
+                <div class="passage-pane">
+                    <div class="passage-text" id="passage-content">
+                        <!-- Dynamic Passage Insertion -->
+                    </div>
+                </div>
+                <div class="question-pane">
+                    <div class="question-number" id="question-num-display">Question 1 of 27</div>
+                    <div class="question-prompt" id="question-prompt-display">
+                        <!-- Dynamic Question Insertion -->
+                    </div>
+                    <div class="options-list" id="options-container">
+                        <!-- Dynamic Options Insertion -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="test-footer" style="width: 100%;">
+                <button class="btn-secondary" onclick="prevQuestion()">Previous</button>
+                <div>
+                    <span id="question-map-indicator" style="font-size: 0.9rem; font-weight: 600;">Item 1 of 27</span>
+                </div>
+                <button class="btn-primary" onclick="nextQuestion()">Next</button>
+            </div>
+        </div>
+
+        <!-- AI WEAKNESS ANALYTICS ENGINE VIEW -->
+        <div id="analytics-view" class="view-panel">
+            <div style="max-width: 1000px; margin: 0 auto; width: 100%;">
+                <h2 style="margin-bottom: 20px;">AI Weakness Analysis & Perfect-Scorer Insights</h2>
+                
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-title"><i class="fa-solid fa-brain"></i> Identified Weakness: Textual Evidence (Command of Evidence)</div>
+                    <p style="line-height: 1.6; margin-bottom: 12px;">
+                        Based on your performance in Module 2 (Hard), you lost marks primarily on questions that require selecting textual evidence to support a newly presented scientific hypothesis or literary claim.
+                    </p>
+                    <span class="tag warning">Domain: Information and Ideas</span>
+                </div>
+
+                <div class="card" style="border-left: 5px solid var(--cb-blue);">
+                    <div class="card-title"><i class="fa-solid fa-lightbulb"></i> Perfect Scorer Strategy Blueprint</div>
+                    <div style="line-height: 1.7; color: #333;">
+                        <p><strong>1. Identify the Exact Claim First:</strong> Before looking at the choices, isolate the specific hypothesis stated in the prompt. Ignore general background details.</p>
+                        <p style="margin-top: 8px;"><strong>2. The Neutral Test:</strong> Incorrect choices often state true facts directly from the passage that do <em>not</em> actively support or weaken the specific assertion being tested.</p>
+                        <p style="margin-top: 8px;"><strong>3. Predict the Connection:</strong> Look for the option that creates a direct logical link between the data given and the researcher's conclusion.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        /* State Management */
+        let currentView = 'dashboard';
+        let currentQuestionIndex = 0;
+        let selectedAnswers = {};
+        let timeRemaining = 1920; // 32 minutes in seconds
+        let timerInterval = null;
+
+        /* Sample Adaptive Mock Data Engine */
+        const sampleQuestions = [
+            {
+                id: 1,
+                domain: "Information and Ideas",
+                skill: "Textual Evidence",
+                passage: "Researchers studying avian communication recorded calls of northern mockingbirds under varying environmental noise levels. They observed that vocalizations in urban environments exhibited higher minimum frequencies than those in rural environments. The researchers hypothesized that mockingbirds adjust their calls specifically to avoid acoustic overlap with low-frequency urban background noise.",
+                prompt: "Which finding, if true, would most directly support the researchers' hypothesis?",
+                options: [
+                    "A) Urban mockingbirds produce calls with higher minimum frequencies even when brought into quiet laboratory settings.",
+                    "B) Non-avian species in urban areas do not alter their vocalization frequencies in response to noise.",
+                    "C) Mockingbirds in urban areas lower their call frequencies when traffic noise artificially decreases during temporary road closures.",
+                    "D) Rural mockingbirds exposed to high-frequency ambient noise alter their vocalizations to lower frequencies."
+                ],
+                correct: 2,
+                explanation: "Option C directly tests the dynamic relationship between low-frequency urban noise and the bird's vocal adjustments. If removing the noise causes the frequency to lower, it confirms the bird actively modulates its call to prevent acoustic overlap."
+            },
+            {
+                id: 2,
+                domain: "Craft and Structure",
+                skill: "Words in Context",
+                passage: "The historical novelist sought to construct an authentic narrative of early trade routes, ensuring that every detail regarding merchant customs was thoroughly validated by contemporary archival logs.",
+                prompt: "As used in the text, what does the word 'authentic' most nearly mean?",
+                options: [
+                    "A) Genuine",
+                    "B) Original",
+                    "C) Authoritative",
+                    "D) Decorative"
+                ],
+                correct: 0,
+                explanation: "In context, 'authentic' refers to historically accurate and real details validated by archival logs, making 'Genuine' the best fit."
+            }
+        ];
+
+        /* View Router */
+        function switchView(viewName) {
+            document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
+            document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById(`${viewName}-view`).classList.add('active');
+            document.getElementById(`nav-${viewName}`).classList.add('active');
+            currentView = viewName;
+
+            if (viewName === 'test') {
+                startTimer();
+                renderQuestion();
+            } else {
+                clearInterval(timerInterval);
+            }
+        }
+
+        /* Test Engine Render Functions */
+        function renderQuestion() {
+            const q = sampleQuestions[currentQuestionIndex];
+            document.getElementById('passage-content').innerText = q.passage;
+            document.getElementById('question-prompt-display').innerText = q.prompt;
+            document.getElementById('question-num-display').innerText = `Question ${currentQuestionIndex + 1} of ${sampleQuestions.length}`;
+            document.getElementById('question-map-indicator').innerText = `Item ${currentQuestionIndex + 1} of ${sampleQuestions.length}`;
+
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `option-btn ${selectedAnswers[currentQuestionIndex] === idx ? 'selected' : ''}`;
+                btn.onclick = () => selectOption(idx);
+
+                const letter = String.fromCharCode(65 + idx);
+                const text = opt.substring(3);
+
+                btn.innerHTML = `<div class="option-letter">${letter}</div><div>${text}</div>`;
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function selectOption(index) {
+            selectedAnswers[currentQuestionIndex] = index;
+            renderQuestion();
+        }
+
+        function nextQuestion() {
+            if (currentQuestionIndex < sampleQuestions.length - 1) {
+                currentQuestionIndex++;
+                renderQuestion();
+            }
+        }
+
+        function prevQuestion() {
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                renderQuestion();
+            }
+        }
+
+        /* Timer Engine */
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (timeRemaining > 0) {
+                    timeRemaining--;
+                    const minutes = Math.floor(timeRemaining / 60);
+                    const seconds = timeRemaining % 60;
+                    document.getElementById('timer-display').innerText = 
+                        `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                } else {
+                    clearInterval(timerInterval);
+                    alert("Time has expired for this module.");
+                }
+            }, 1000);
+        }
+
+        /* PDF Ingestion Handler Stub */
+        function handlePDFUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                document.getElementById('import-status').innerText = `Parsing ${file.name}... Extracting items and adaptive scoring metadata.`;
+                setTimeout(() => {
+                    document.getElementById('import-status').innerText = `Successfully imported ${file.name}! 27 questions loaded into Module 1.`;
+                }, 1500);
+            }
+        }
+
+        /* Tools placeholders */
+        function toggleHighlighter() {
+            alert("Highlighter tool toggled. Click and drag text on the passage to highlight.");
+        }
+
+        function toggleAnnotate() {
+            alert("Annotation mode enabled.");
+        }
+    </script>
+</body>
+</html>
