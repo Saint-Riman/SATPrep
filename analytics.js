@@ -1,11 +1,11 @@
 /**
  * analytics.js
- * Scoring (adaptive), weakness analysis, history saving, student-friendly explanations.
+ * Adaptive scoring, weakness analysis, history, and clear student explanations.
  */
 
 const EXPERT_TIPS = {
     "Textual Evidence": "When a question asks for the best evidence, first lock in what the claim actually needs. Then look for the quote that directly supports that exact claim — no extra assumptions allowed. If a choice requires you to infer something the text never says, eliminate it.",
-    "Words in Context": "Cover the word or blank. Put your own simple word in the sentence ("bad", "change", "support"). Then look at the choices and pick the one that matches your simple word's meaning most precisely. Connotation matters.",
+    "Words in Context": "Cover the word or blank. Put your own simple word in the sentence (\"bad\", \"change\", \"support\"). Then look at the choices and pick the one that matches your simple word's meaning most precisely. Connotation matters.",
     "Transitions": "Read the sentence before and the sentence after while covering the transition. Decide the logical relationship: continuation, contrast, cause-effect, or example. Only then choose the transition that matches that relationship.",
     "Central Ideas and Details": "Identify the main point of the whole passage first. Wrong answers often focus on a true but minor detail or twist the main idea slightly. The correct choice will cover the broadest accurate summary.",
     "Cross-Text Connections": "Determine the relationship between the two passages (agree, disagree, illustrate, etc.). Then evaluate each choice against that specific relationship rather than against only one passage.",
@@ -27,7 +27,6 @@ class AnalyticsEngine {
             });
             const m1Percent = m1Qs.length ? m1Correct / m1Qs.length : 0;
 
-            // Adaptive routing threshold (~60% as approximation of real DSAT)
             const isHard = m1Percent >= 0.60;
             const m2Qs = isHard ? testData.sections[sectionKey].module2Hard : testData.sections[sectionKey].module2Easy;
             const m2Resp = userResponses[sectionKey].module2;
@@ -54,7 +53,6 @@ class AnalyticsEngine {
     static isCorrect(q, response) {
         if (response === undefined || response === null || response === '') return false;
         if (q.type === 'SPR') {
-            // Normalize SPR answers (allow minor formatting differences)
             const normalize = (v) => String(v).trim().replace(/\s+/g, '').replace(/^0+/, '') || '0';
             return normalize(response) === normalize(q.correctAnswer);
         }
@@ -62,16 +60,13 @@ class AnalyticsEngine {
     }
 
     static generateReport(testData, userResponses, scoreData) {
-        // Update score hero
         document.getElementById('final-total-score').textContent = scoreData.total;
         document.getElementById('final-rw-score').textContent = scoreData.rw;
         document.getElementById('final-math-score').textContent = scoreData.math;
 
-        // Rough percentile approximation
         const pct = this.approxPercentile(scoreData.total);
         document.getElementById('final-percentile').textContent = `Approximately ${pct}th percentile nationally`;
 
-        // Collect misses by tag
         const missedTags = {};
         const analyze = (qs, resps) => {
             qs.forEach(q => {
@@ -91,7 +86,6 @@ class AnalyticsEngine {
         const sorted = Object.entries(missedTags).sort((a, b) => b[1] - a[1]);
         const topWeaknesses = sorted.slice(0, 3).map(([tag]) => tag);
 
-        // Render tags
         const tagContainer = document.getElementById('weakness-tags');
         tagContainer.innerHTML = '';
         if (sorted.length === 0) {
@@ -105,7 +99,6 @@ class AnalyticsEngine {
             });
         }
 
-        // Expert tip (easy language)
         const tipContainer = document.getElementById('expert-tip-container');
         if (sorted.length > 0) {
             const top = sorted[0][0];
@@ -121,10 +114,17 @@ class AnalyticsEngine {
             `;
         }
 
-        // Simple domain breakdown (derived from tags)
-        this.renderDomainBreakdown(missedTags, testData);
+        // Show grading source note if available
+        if (testData.extractionNote) {
+            const note = document.createElement('p');
+            note.className = 'text-sm text-secondary';
+            note.style.marginTop = '0.75rem';
+            note.textContent = testData.extractionNote;
+            tipContainer.appendChild(note);
+        }
 
-        // Persist to history
+        this.renderDomainBreakdown(missedTags);
+
         const username = window.Storage && window.Storage.load().session;
         if (username) {
             window.Storage.addTestResult(username, {
@@ -139,8 +139,7 @@ class AnalyticsEngine {
         }
     }
 
-    static renderDomainBreakdown(missedTags, testData) {
-        // Rough domain health from available tags
+    static renderDomainBreakdown(missedTags) {
         const domains = [
             { name: 'Information and Ideas', tags: ['Textual Evidence', 'Central Ideas and Details', 'Quantitative Evidence'], desc: 'Command of Evidence, Central Ideas' },
             { name: 'Craft and Structure', tags: ['Words in Context', 'Text Structure and Purpose', 'Cross-Text Connections'], desc: 'Words in Context, Text Structure' },
@@ -154,7 +153,6 @@ class AnalyticsEngine {
         domains.forEach(d => {
             let missCount = 0;
             d.tags.forEach(t => { missCount += (missedTags[t] || 0); });
-            // Invert into a rough % mastery (heuristic)
             let mastery = Math.max(40, 100 - missCount * 12);
             if (missCount === 0) mastery = 96;
 
@@ -178,7 +176,6 @@ class AnalyticsEngine {
     }
 
     static approxPercentile(total) {
-        // Very rough mapping for display purposes only
         if (total >= 1550) return 99;
         if (total >= 1500) return 98;
         if (total >= 1450) return 96;

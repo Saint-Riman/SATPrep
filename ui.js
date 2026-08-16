@@ -1,6 +1,6 @@
 /**
  * ui.js
- * Auth, view management, dual PDF upload, score inputs, history rendering.
+ * Auth, view management, dual PDF upload, score inputs, history, and status feedback.
  */
 
 const STORAGE_KEY = 'dsat_prep_hub_v1';
@@ -56,7 +56,6 @@ class Storage {
     static addTestResult(username, result) {
         const user = this.upsertUser(username, {});
         user.history.unshift(result);
-        // Keep last 30
         if (user.history.length > 30) user.history = user.history.slice(0, 30);
         this.upsertUser(username, { history: user.history });
     }
@@ -69,7 +68,7 @@ class UIController {
             test: document.getElementById('test-view'),
             results: document.getElementById('results-view')
         };
-        this.authMode = 'login'; // or 'signup'
+        this.authMode = 'login';
         this.questionsFile = null;
         this.answersFile = null;
 
@@ -174,7 +173,6 @@ class UIController {
 
     // ---------- Dashboard ----------
     bindDashboard() {
-        // Score inputs
         const currentInput = document.getElementById('current-score-input');
         const targetInput = document.getElementById('target-score-input');
 
@@ -196,7 +194,6 @@ class UIController {
         currentInput.addEventListener('blur', saveScores);
         targetInput.addEventListener('blur', saveScores);
 
-        // Dual file inputs
         const qInput = document.getElementById('questions-input');
         const aInput = document.getElementById('answers-input');
         const qDrop = document.getElementById('questions-drop');
@@ -266,11 +263,18 @@ class UIController {
         const status = document.getElementById('upload-status');
         const statusText = document.getElementById('upload-status-text');
         status.classList.remove('hidden');
-        statusText.textContent = 'Extracting text and building adaptive modules…';
+        statusText.textContent = this.answersFile
+            ? 'Extracting answer key and building adaptive modules…'
+            : 'Building adaptive modules (no answer key provided)…';
 
         try {
             const parsed = await window.PDFProcessor.parseFiles(this.questionsFile, this.answersFile);
             status.classList.add('hidden');
+
+            // Brief feedback about grading source
+            if (parsed.extractionNote) {
+                console.log(parsed.extractionNote);
+            }
 
             if (window.TestEngineInstance) {
                 window.TestEngineInstance.startTest(parsed);
@@ -291,17 +295,14 @@ class UIController {
 
         this.views.dashboard.classList.remove('hidden');
 
-        // User chip
         const username = Storage.load().session;
         document.getElementById('user-display-name').textContent = username;
         document.getElementById('user-avatar').textContent = username.charAt(0).toUpperCase();
 
-        // Score inputs
         document.getElementById('current-score-input').value = user.currentScore || 1200;
         document.getElementById('target-score-input').value = user.targetScore || 1500;
         this.updatePointsToGo();
 
-        // Average + history
         const history = user.history || [];
         if (history.length === 0) {
             document.getElementById('avg-score-display').textContent = '—';
@@ -314,7 +315,6 @@ class UIController {
             document.getElementById('avg-score-display').textContent = avg;
             document.getElementById('avg-score-sub').textContent = `Across ${history.length} practice test${history.length > 1 ? 's' : ''}`;
 
-            // Aggregate weaknesses
             const weaknessCount = {};
             history.forEach(h => {
                 (h.topWeaknesses || []).forEach(w => {
@@ -330,13 +330,15 @@ class UIController {
                 document.getElementById('top-weakness-sub').textContent = 'Strong across the board';
             }
 
-            // History list
             const list = document.getElementById('history-list');
             list.innerHTML = history.slice(0, 8).map(h => {
                 const date = new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                const badge = h.usedRealAnswers
+                    ? '<span style="font-size:0.7rem;background:#CCFBF1;color:#0D9488;padding:2px 6px;border-radius:4px;margin-left:6px;">Real key</span>'
+                    : '';
                 return `<div class="history-item">
                     <div>
-                        <div class="font-medium">${date}</div>
+                        <div class="font-medium">${date}${badge}</div>
                         <div class="text-xs text-muted">RW ${h.rw} · Math ${h.math}</div>
                     </div>
                     <div class="score">${h.total}</div>
@@ -355,7 +357,6 @@ class UIController {
         else el.textContent = 'Target reached';
     }
 
-    // ---------- Views ----------
     hideAllViews() {
         Object.values(this.views).forEach(v => v && v.classList.add('hidden'));
     }

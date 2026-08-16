@@ -1,7 +1,6 @@
 /**
  * parser.js
- * Handles dual PDF upload, answer-key extraction, and mock adaptive test generation.
- * When an answer key is provided we extract numbered answers and apply them for real grading.
+ * Dual PDF handling + improved answer-key extraction for real grading.
  */
 
 const SAT_DOMAINS = {
@@ -27,22 +26,30 @@ const SAT_DOMAINS = {
 
 class PDFProcessor {
     static async parseFiles(questionsFile, answersFile = null) {
-        // Simulate realistic processing time
-        await new Promise(r => setTimeout(r, 1800));
+        await new Promise(r => setTimeout(r, 1600));
 
         let extractedAnswers = null;
+        let extractionNote = 'Using simulated answers (no answer key or extraction failed).';
+
         if (answersFile) {
             try {
                 const text = await this.extractText(answersFile);
                 extractedAnswers = this.parseAnswerKey(text);
-                console.log('Extracted answers count:', extractedAnswers ? extractedAnswers.length : 0);
+                if (extractedAnswers && extractedAnswers.filter(a => a !== null).length >= 15) {
+                    extractionNote = `Real answer key applied (${extractedAnswers.filter(a => a !== null).length} answers extracted).`;
+                } else {
+                    extractedAnswers = null;
+                    extractionNote = 'Answer key found but could not reliably parse enough answers. Using simulated answers.';
+                }
             } catch (e) {
-                console.warn('Answer key extraction failed, falling back to mock answers.', e);
+                console.warn('Answer key extraction error:', e);
+                extractionNote = 'Could not read answer key PDF. Using simulated answers.';
             }
         }
 
         const testBank = this.generateMockTestBank(extractedAnswers);
-        testBank.usedRealAnswers = !!(extractedAnswers && extractedAnswers.length >= 20);
+        testBank.usedRealAnswers = !!(extractedAnswers && extractedAnswers.filter(a => a !== null).length >= 15);
+        testBank.extractionNote = extractionNote;
         return testBank;
     }
 
@@ -53,58 +60,70 @@ class PDFProcessor {
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const content = await page.getTextContent();
-            const pageText = content.items.map(item => item.str).join(' ');
-            fullText += pageText + '\n';
+            fullText += content.items.map(item => item.str).join(' ') + '\n';
         }
         return fullText;
     }
 
     /**
-     * Heuristic answer-key parser.
-     * Looks for common patterns: 1. B, 1) C, Question 1: A, 1 B, etc.
-     * Also captures simple numeric / fraction SPR answers.
+     * More robust answer-key parser.
+     * Handles common College Board / practice-test formats.
      */
     static parseAnswerKey(text) {
-        const answers = [];
-        // Normalize
-        const cleaned = text.replace(/\r/g, '\n').replace(/[ \t]+/g, ' ');
+        const found = new Map();
 
-        // Pattern set for MCQ letters
-        const mcqPatterns = [
-            /(?:^|\n|\s)(?:Question\s*)?(\d{1,2})[\.\):\s]+([A-Da-d])(?:\s|$)/gi,
-            /(?:^|\n)(\d{1,2})\s*\.\s*([A-Da-d])(?:\s|$)/gi,
-            /(?:^|\n)(\d{1,2})\s+([A-Da-d])(?:\s|$)/gi
+        // Normalize whitespace and common separators
+        let cleaned = text
+            .replace(/\r/g, '\n')
+            .replace(/[ \t]+/g, ' ')
+            .replace(/\n{2,}/g, '\n');
+
+        // Broad set of patterns for MCQ letters
+        const patterns = [
+            // 1. B   1) B   1: B   Question 1 B   Q1. B
+            /(?:Question\s*|Q\s*)?(\d{1,2})\s*[\.\):\-]?\s*([A-Da-d])(?=[\s\n,]|$)/gi,
+            // 1 B (space separated)
+            /(?:^|\n)\s*(\d{1,2})\s+([A-Da-d])(?=[\s\n,]|$)/gi,
+            // Answer: B or Ans. B near a number
+            /(\d{1,2}).{0,12}(?:Answer|Ans\.?)\s*[:=]?\s*([A-Da-d])/gi
         ];
 
-        const found = new Map(); // number -> answer
-
-        for (const re of mcqPatterns) {
-            let match;
-            while ((match = re.exec(cleaned)) !== null) {
-                const num = parseInt(match[1], 10);
-                const letter = match[2].toUpperCase();
-                if (num >= 1 && num <= 100 && !found.has(num)) {
+        for (const re of patterns) {
+            let m;
+            while ((m = re.exec(cleaned)) !== null) {
+                const num = parseInt(m[1], 10);
+                const letter = m[2].toUpperCase();
+                if (num >= 1 && num <= 120 && !found.has(num)) {
                     found.set(num, letter);
                 }
             }
         }
 
-        // Simple SPR numeric capture near numbers (best-effort)
-        const sprRe = /(?:^|\n|\s)(?:Question\s*)?(\d{1,2})[\.\):\s]+(\d+\/?\d*|\.\d+)(?:\s|$)/gi;
-        let sprMatch;
-        while ((sprMatch = sprRe.exec(cleaned)) !== null) {
-            const num = parseInt(sprMatch[1], 10);
-            if (num >= 1 && num <= 100 && !found.has(num)) {
-                found.set(num, sprMatch[2]);
+        // SPR / numeric answers (best-effort)
+        const sprPatterns = [
+            /(?:Question\s*|Q\s*)?(\d{1,2})\s*[\.\):\-]?\s*(\d+\/?\d*|\.\d+)(?=[\s\n,]|$)/gi,
+            /(\d{1,2}).{0,10}(?:Answer|Ans\.?)\s*[:=]?\s*(\d+\/?\d*|\.\d+)/gi
+        ];
+
+        for (const re of sprPatterns) {
+            let m;
+            while ((m = re.exec(cleaned)) !== null) {
+                const num = parseInt(m[1], 10);
+                if (num >= 1 && num <= 120 && !found.has(num)) {
+                    found.set(num, m[2]);
+                }
             }
         }
 
-        // Convert to ordered array (1-based index becomes 0-based later)
-        const maxNum = Math.max(...found.keys(), 0);
-        for (let i = 1; i <= maxNum; i++) {
+        if (found.size < 10) return null;
+
+        // Build ordered array (index 0 = question 1)
+        const max = Math.max(...found.keys());
+        const answers = [];
+        for (let i = 1; i <= max; i++) {
             answers.push(found.has(i) ? found.get(i) : null);
         }
-        return answers.filter(a => a !== null).length >= 10 ? answers : null;
+        return answers;
     }
 
     static generateMockTestBank(extractedAnswers) {
@@ -112,15 +131,12 @@ class PDFProcessor {
         let answerIdx = 0;
 
         const takeAnswer = (isSPR = false) => {
-            if (!extractedAnswers || answerIdx >= extractedAnswers.length) {
-                return null; // will use mock later
-            }
+            if (!extractedAnswers || answerIdx >= extractedAnswers.length) return null;
             const raw = extractedAnswers[answerIdx++];
             if (raw === null || raw === undefined) return null;
             if (isSPR) return String(raw);
-            // letter -> index
             if (typeof raw === 'string' && /^[A-D]$/i.test(raw)) {
-                return raw.toUpperCase().charCodeAt(0) - 65;
+                return raw.toUpperCase().charCodeAt(0) - 65; // A=0, B=1...
             }
             return null;
         };
@@ -129,6 +145,7 @@ class PDFProcessor {
             id,
             title: 'College Board Official Practice Test',
             usedRealAnswers: false,
+            extractionNote: '',
             sections: {
                 RW: {
                     module1: this.generateQuestions(27, 'RW', 'mixed', takeAnswer),
