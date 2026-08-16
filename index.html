@@ -99,6 +99,18 @@
             </div>
         </section>
 
+        <!-- Settings: OpenAI key (stored only in localStorage) -->
+        <section class="settings-section">
+            <h3 class="section-title">AI Explanations (optional)</h3>
+            <p class="text-sm text-secondary mb-3">Paste your OpenAI API key to get GPT-4o-mini explanations in Review mode. The key stays only in this browser.</p>
+            <div class="settings-row">
+                <input type="password" class="input" id="openai-key-input" placeholder="sk-proj-... or sk-..." style="flex:1; max-width:420px;">
+                <button class="btn btn-secondary btn-sm" id="save-openai-key-btn">Save Key</button>
+                <button class="btn btn-ghost btn-sm" id="clear-openai-key-btn">Clear</button>
+            </div>
+            <p class="text-xs text-muted mt-2" id="openai-key-status">No key saved — using local explanations.</p>
+        </section>
+
         <!-- Deeper Skill Tracking -->
         <section class="skills-section" id="skills-section">
             <h3 class="section-title">Skill Breakdown</h3>
@@ -225,7 +237,6 @@
             </div>
         </section>
 
-        <!-- Timer Analytics -->
         <section class="timer-analytics" id="timer-analytics">
             <h3 class="section-title">Timing Analytics</h3>
             <div class="timer-grid" id="timer-grid"></div>
@@ -242,11 +253,18 @@
 
         <section class="domain-grid" id="domain-breakdown"></section>
 
-        <!-- Question Review Mode -->
         <section id="review-section" class="review-section hidden">
-            <h3 class="section-title">Question Review</h3>
-            <p class="text-sm text-secondary mb-3">Your answer vs correct answer · Clear explanations</p>
+            <div class="flex-between mb-3" style="flex-wrap:wrap; gap:0.75rem;">
+                <div>
+                    <h3 class="section-title" style="margin-bottom:0.25rem;">Question Review</h3>
+                    <p class="text-sm text-secondary">Your answer vs correct · Explanations powered by GPT-4o-mini when a key is set</p>
+                </div>
+                <button class="btn btn-secondary btn-sm" id="generate-ai-explanations-btn">
+                    <i class="fas fa-magic"></i> Generate AI Explanations
+                </button>
+            </div>
             <div id="review-list" class="review-list"></div>
+            <p class="text-sm text-muted mt-3" id="review-ai-status"></p>
         </section>
     </main>
 
