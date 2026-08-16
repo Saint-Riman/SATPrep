@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://www.desmos.com/api/v1.10/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
     <link rel="stylesheet" href="satprep.css">
 </head>
 <body>
@@ -37,6 +38,17 @@
         </div>
     </div>
 
+    <!-- DESMOS MODAL -->
+    <div id="desmos-modal" class="modal-overlay hidden">
+        <div class="modal desmos-modal">
+            <div class="desmos-header">
+                <h3><i class="fas fa-chart-line"></i> Desmos Graphing Calculator</h3>
+                <button class="btn btn-ghost btn-sm" id="close-desmos-btn"><i class="fas fa-times"></i> Close</button>
+            </div>
+            <div id="desmos-calculator" style="width:100%; height:520px;"></div>
+        </div>
+    </div>
+
     <!-- ===================== DASHBOARD ===================== -->
     <main id="dashboard-view" class="view-container hidden">
         <header class="dashboard-header">
@@ -58,12 +70,11 @@
             </div>
         </header>
 
-        <!-- Dynamic Stats -->
         <section class="stats-grid">
             <div class="stat-card">
                 <div class="stat-label">Current Score</div>
                 <div class="score-input-wrap">
-                    <input type="number" class="score-input primary" id="current-score-input" min="400" max="1600" step="10" value="1200" placeholder="—">
+                    <input type="number" class="score-input primary" id="current-score-input" min="400" max="1600" step="10" value="1200">
                     <span class="text-muted text-sm">/ 1600</span>
                 </div>
                 <div class="stat-sub">Your latest self-reported score</div>
@@ -71,7 +82,7 @@
             <div class="stat-card">
                 <div class="stat-label">Target Score</div>
                 <div class="score-input-wrap">
-                    <input type="number" class="score-input" id="target-score-input" min="400" max="1600" step="10" value="1500" placeholder="—">
+                    <input type="number" class="score-input" id="target-score-input" min="400" max="1600" step="10" value="1500">
                     <span class="text-muted text-sm">/ 1600</span>
                 </div>
                 <div class="stat-sub" id="points-to-go">— points to go</div>
@@ -88,13 +99,20 @@
             </div>
         </section>
 
-        <!-- Dual PDF Upload -->
+        <!-- Deeper Skill Tracking -->
+        <section class="skills-section" id="skills-section">
+            <h3 class="section-title">Skill Breakdown</h3>
+            <p class="text-sm text-secondary mb-3">Aggregated from all your practice tests · Domain → specific skills</p>
+            <div id="skills-grid" class="skills-grid">
+                <div class="text-sm text-muted">Complete tests to build your skill profile.</div>
+            </div>
+        </section>
+
         <section class="upload-section">
             <div class="upload-header">
                 <h2>Start a Practice Test</h2>
                 <p>Upload the official practice test PDF and (recommended) the answer key for accurate grading.</p>
             </div>
-
             <div class="upload-grid">
                 <div class="drop-zone" id="questions-drop">
                     <div class="icon"><i class="fas fa-file-pdf"></i></div>
@@ -111,25 +129,22 @@
                     <input type="file" id="answers-input" accept="application/pdf">
                 </div>
             </div>
-
             <div class="upload-actions">
-                <p class="text-sm text-secondary" id="upload-hint">Both files improve accuracy. Answer key enables real scoring.</p>
+                <p class="text-sm text-secondary">Timing matches official DSAT: RW 32 min / Math 35 min per module.</p>
                 <button class="btn btn-primary btn-lg" id="start-test-btn" disabled>
                     <i class="fas fa-play"></i> Start Adaptive Test
                 </button>
             </div>
-
             <div id="upload-status" class="upload-status hidden">
                 <div class="loader"></div>
-                <span id="upload-status-text">Parsing documents and building adaptive modules…</span>
+                <span id="upload-status-text">Building adaptive modules…</span>
             </div>
         </section>
 
-        <!-- Recent History -->
-        <section class="history-section" id="history-section">
-            <h3>Recent Practice Tests</h3>
+        <section class="history-section">
+            <h3 class="section-title">Recent Practice Tests</h3>
             <div class="history-list" id="history-list">
-                <div class="text-sm text-muted" id="history-empty">No practice tests yet. Complete one to see your progress here.</div>
+                <div class="text-sm text-muted">No practice tests yet.</div>
             </div>
         </section>
     </main>
@@ -147,11 +162,11 @@
                     <button id="hide-time-btn" class="btn btn-ghost btn-sm" style="margin-left:0.35rem;">Hide</button>
                 </div>
             </div>
-            <div class="header-right" style="text-align:right; display:flex; justify-content:flex-end; gap:0.35rem; align-items:center;">
-                <button class="tool-btn" title="Highlighter"><i class="fas fa-highlighter"></i></button>
+            <div class="header-right" style="display:flex; justify-content:flex-end; gap:0.35rem; align-items:center;">
+                <button class="tool-btn" title="Highlighter" id="highlight-btn"><i class="fas fa-highlighter"></i></button>
                 <button class="tool-btn hidden" title="Calculator" id="calc-btn"><i class="fas fa-calculator"></i></button>
-                <button class="tool-btn" title="Desmos"><i class="fas fa-chart-line"></i></button>
-                <button class="tool-btn" title="Reference"><i class="fas fa-square-root-alt"></i></button>
+                <button class="tool-btn" title="Desmos Graphing Calculator" id="desmos-btn"><i class="fas fa-chart-line"></i></button>
+                <button class="tool-btn" title="Reference Sheet" id="ref-btn"><i class="fas fa-square-root-alt"></i></button>
                 <button class="btn btn-secondary btn-sm" id="end-test-early-btn" style="margin-left:0.5rem;">End Test</button>
             </div>
         </header>
@@ -173,7 +188,7 @@
                     <i class="far fa-bookmark" id="flag-icon"></i> Mark for Review
                 </button>
             </div>
-            <nav class="question-navigator" id="nav-nodes" aria-label="Question Navigation"></nav>
+            <nav class="question-navigator" id="nav-nodes"></nav>
             <div class="footer-right">
                 <button class="nav-btn" id="next-btn">Next <i class="fas fa-chevron-right"></i></button>
             </div>
@@ -184,15 +199,20 @@
     <main id="results-view" class="view-container hidden">
         <header class="results-header">
             <h2>Test Results & Analysis</h2>
-            <button class="btn btn-primary" id="return-dashboard-btn">
-                <i class="fas fa-arrow-left"></i> Back to Dashboard
-            </button>
+            <div class="flex-gap">
+                <button class="btn btn-secondary" id="review-questions-btn">
+                    <i class="fas fa-search"></i> Review Questions
+                </button>
+                <button class="btn btn-primary" id="return-dashboard-btn">
+                    <i class="fas fa-arrow-left"></i> Dashboard
+                </button>
+            </div>
         </header>
 
         <section class="score-hero">
             <div class="label">Total SAT Score</div>
             <div class="total-score" id="final-total-score">—</div>
-            <div class="percentile" id="final-percentile">Calculating percentile…</div>
+            <div class="percentile" id="final-percentile">—</div>
             <div class="section-scores">
                 <div>
                     <h3>Reading & Writing</h3>
@@ -205,23 +225,32 @@
             </div>
         </section>
 
+        <!-- Timer Analytics -->
+        <section class="timer-analytics" id="timer-analytics">
+            <h3 class="section-title">Timing Analytics</h3>
+            <div class="timer-grid" id="timer-grid"></div>
+        </section>
+
         <section class="ai-panel">
             <div class="ai-panel-header">
                 <i class="fas fa-robot"></i>
-                <h3>AI Weakness Diagnostic</h3>
+                <h3>Weakness Diagnostic</h3>
             </div>
-            <p class="text-secondary text-sm mb-3" style="margin-bottom:1rem;">Based on your adaptive path and miss patterns, here is exactly where points are being lost — explained simply.</p>
             <div id="weakness-tags" class="weakness-tags"></div>
             <div class="expert-tip" id="expert-tip-container"></div>
         </section>
 
-        <section class="domain-grid" id="domain-breakdown">
-            <!-- Filled dynamically -->
+        <section class="domain-grid" id="domain-breakdown"></section>
+
+        <!-- Question Review Mode -->
+        <section id="review-section" class="review-section hidden">
+            <h3 class="section-title">Question Review</h3>
+            <p class="text-sm text-secondary mb-3">Your answer vs correct answer · Clear explanations</p>
+            <div id="review-list" class="review-list"></div>
         </section>
     </main>
 
     <script>
-        // Configure pdf.js worker
         if (window.pdfjsLib) {
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
         }
