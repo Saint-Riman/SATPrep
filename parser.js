@@ -1,11 +1,9 @@
 /**
  * parser.js
- * 
- * Simulates the backend AI pipeline that parses a College Board PDF
- * and transforms it into a structured JSON format for the adaptive test engine.
+ * Handles dual PDF upload, answer-key extraction, and mock adaptive test generation.
+ * When an answer key is provided we extract numbered answers and apply them for real grading.
  */
 
-// Define the official SAT domains and tags for the mock data
 const SAT_DOMAINS = {
     RW: {
         domains: ["Information and Ideas", "Craft and Structure", "Expression of Ideas", "Standard English Conventions"],
@@ -28,119 +26,184 @@ const SAT_DOMAINS = {
 };
 
 class PDFProcessor {
-    /**
-     * Simulates uploading and parsing the PDF.
-     * @param {File} file - The PDF file uploaded by the user.
-     * @returns {Promise<Object>} - The structured test data.
-     */
-    static async parseFile(file) {
-        return new Promise(resolve => {
-            // Simulate a 2.5 second delay for "AI processing"
-            setTimeout(() => {
-                const parsedData = this.generateMockTestBank();
-                console.log("PDF parsed successfully:", parsedData);
-                resolve(parsedData);
-            }, 2500);
-        });
+    static async parseFiles(questionsFile, answersFile = null) {
+        // Simulate realistic processing time
+        await new Promise(r => setTimeout(r, 1800));
+
+        let extractedAnswers = null;
+        if (answersFile) {
+            try {
+                const text = await this.extractText(answersFile);
+                extractedAnswers = this.parseAnswerKey(text);
+                console.log('Extracted answers count:', extractedAnswers ? extractedAnswers.length : 0);
+            } catch (e) {
+                console.warn('Answer key extraction failed, falling back to mock answers.', e);
+            }
+        }
+
+        const testBank = this.generateMockTestBank(extractedAnswers);
+        testBank.usedRealAnswers = !!(extractedAnswers && extractedAnswers.length >= 20);
+        return testBank;
+    }
+
+    static async extractText(file) {
+        const buffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            const pageText = content.items.map(item => item.str).join(' ');
+            fullText += pageText + '\n';
+        }
+        return fullText;
     }
 
     /**
-     * Generates a complete 2-stage adaptive test structure.
-     * RW: 27 questions per module. Math: 22 questions per module.
+     * Heuristic answer-key parser.
+     * Looks for common patterns: 1. B, 1) C, Question 1: A, 1 B, etc.
+     * Also captures simple numeric / fraction SPR answers.
      */
-    static generateMockTestBank() {
+    static parseAnswerKey(text) {
+        const answers = [];
+        // Normalize
+        const cleaned = text.replace(/\r/g, '\n').replace(/[ \t]+/g, ' ');
+
+        // Pattern set for MCQ letters
+        const mcqPatterns = [
+            /(?:^|\n|\s)(?:Question\s*)?(\d{1,2})[\.\):\s]+([A-Da-d])(?:\s|$)/gi,
+            /(?:^|\n)(\d{1,2})\s*\.\s*([A-Da-d])(?:\s|$)/gi,
+            /(?:^|\n)(\d{1,2})\s+([A-Da-d])(?:\s|$)/gi
+        ];
+
+        const found = new Map(); // number -> answer
+
+        for (const re of mcqPatterns) {
+            let match;
+            while ((match = re.exec(cleaned)) !== null) {
+                const num = parseInt(match[1], 10);
+                const letter = match[2].toUpperCase();
+                if (num >= 1 && num <= 100 && !found.has(num)) {
+                    found.set(num, letter);
+                }
+            }
+        }
+
+        // Simple SPR numeric capture near numbers (best-effort)
+        const sprRe = /(?:^|\n|\s)(?:Question\s*)?(\d{1,2})[\.\):\s]+(\d+\/?\d*|\.\d+)(?:\s|$)/gi;
+        let sprMatch;
+        while ((sprMatch = sprRe.exec(cleaned)) !== null) {
+            const num = parseInt(sprMatch[1], 10);
+            if (num >= 1 && num <= 100 && !found.has(num)) {
+                found.set(num, sprMatch[2]);
+            }
+        }
+
+        // Convert to ordered array (1-based index becomes 0-based later)
+        const maxNum = Math.max(...found.keys(), 0);
+        for (let i = 1; i <= maxNum; i++) {
+            answers.push(found.has(i) ? found.get(i) : null);
+        }
+        return answers.filter(a => a !== null).length >= 10 ? answers : null;
+    }
+
+    static generateMockTestBank(extractedAnswers) {
+        const id = 'sat_practice_' + Date.now();
+        let answerIdx = 0;
+
+        const takeAnswer = (isSPR = false) => {
+            if (!extractedAnswers || answerIdx >= extractedAnswers.length) {
+                return null; // will use mock later
+            }
+            const raw = extractedAnswers[answerIdx++];
+            if (raw === null || raw === undefined) return null;
+            if (isSPR) return String(raw);
+            // letter -> index
+            if (typeof raw === 'string' && /^[A-D]$/i.test(raw)) {
+                return raw.toUpperCase().charCodeAt(0) - 65;
+            }
+            return null;
+        };
+
         return {
-            id: "sat_practice_test_" + Date.now(),
-            title: "College Board Official Practice Test",
+            id,
+            title: 'College Board Official Practice Test',
+            usedRealAnswers: false,
             sections: {
                 RW: {
-                    module1: this.generateQuestions(27, 'RW', 'mixed'),
-                    module2Easy: this.generateQuestions(27, 'RW', 'easy'),
-                    module2Hard: this.generateQuestions(27, 'RW', 'hard')
+                    module1: this.generateQuestions(27, 'RW', 'mixed', takeAnswer),
+                    module2Easy: this.generateQuestions(27, 'RW', 'easy', takeAnswer),
+                    module2Hard: this.generateQuestions(27, 'RW', 'hard', takeAnswer)
                 },
                 MATH: {
-                    module1: this.generateQuestions(22, 'MATH', 'mixed'),
-                    module2Easy: this.generateQuestions(22, 'MATH', 'easy'),
-                    module2Hard: this.generateQuestions(22, 'MATH', 'hard')
+                    module1: this.generateQuestions(22, 'MATH', 'mixed', takeAnswer),
+                    module2Easy: this.generateQuestions(22, 'MATH', 'easy', takeAnswer),
+                    module2Hard: this.generateQuestions(22, 'MATH', 'hard', takeAnswer)
                 }
             }
         };
     }
 
-    /**
-     * Generates a specific set of questions for a module.
-     */
-    static generateQuestions(count, type, difficulty) {
-        let questions = [];
+    static generateQuestions(count, type, difficulty, takeAnswerFn) {
+        const questions = [];
         const domainList = SAT_DOMAINS[type].domains;
 
         for (let i = 1; i <= count; i++) {
-            // Cycle through domains to ensure a balanced test
-            let domain = domainList[i % domainList.length];
-            
-            // Pick a random tag within that domain
-            let tagsList = SAT_DOMAINS[type].tags[domain];
-            let tag = tagsList[Math.floor(Math.random() * tagsList.length)];
+            const domain = domainList[i % domainList.length];
+            const tagsList = SAT_DOMAINS[type].tags[domain];
+            const tag = tagsList[Math.floor(Math.random() * tagsList.length)];
+            const isSPR = type === 'MATH' && Math.random() > 0.78;
+            const qType = isSPR ? 'SPR' : 'MCQ';
 
-            // 80% Multiple Choice, 20% Math Grid-in (SPR) for Math section
-            let qType = (type === 'MATH' && Math.random() > 0.8) ? "SPR" : "MCQ";
-            
-            let questionObj = {
-                id: `${type}_${difficulty}_${i}_${Date.now()}`,
+            let correct = takeAnswerFn ? takeAnswerFn(isSPR) : null;
+
+            const q = {
+                id: `${type}_${difficulty}_${i}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
                 number: i,
-                domain: domain,
-                tag: tag,
-                difficulty: difficulty,
+                domain,
+                tag,
+                difficulty,
                 type: qType,
-                correctAnswer: null, // Will be set below
+                correctAnswer: correct,
                 passage: null,
                 text: null,
                 options: null
             };
 
-            // Generate Mock Content based on section type
             if (type === 'RW') {
-                questionObj.passage = this.generateMockPassage(domain, tag);
-                questionObj.text = `Which choice best summarizes the main idea of the text? (Simulated ${tag} question)`;
-                questionObj.options = [
-                    "A plausible but factually incorrect distractor.",
-                    "The correct answer that aligns with the passage.",
-                    "A choice that focuses on a minor detail rather than the main point.",
-                    "An extreme claim that goes beyond the text."
+                q.passage = this.generateMockPassage(domain);
+                q.text = `Which choice best completes the text or answers the question? (Focus: ${tag})`;
+                q.options = [
+                    'A distractor that is close but incomplete.',
+                    'The option that best aligns with the passage evidence.',
+                    'A choice that overgeneralizes beyond the text.',
+                    'An extreme claim not supported by the passage.'
                 ];
-                questionObj.correctAnswer = 1; // Index 1 (Option B)
+                if (q.correctAnswer === null) q.correctAnswer = 1;
             } else {
-                // Math Section
-                questionObj.text = `Simulated Math Problem: Solve for $x$ in the context of ${tag}.`;
-                
-                if (qType === "MCQ") {
-                    questionObj.options = ["12", "15", "18", "24"];
-                    questionObj.correctAnswer = 2; // Index 2 (Option C)
+                q.text = `Solve the problem involving ${tag}. (Simulated ${difficulty} difficulty)`;
+                if (qType === 'MCQ') {
+                    q.options = ['12', '15', '18', '24'];
+                    if (q.correctAnswer === null) q.correctAnswer = 2;
                 } else {
-                    // SPR (Student-Produced Response)
-                    questionObj.correctAnswer = "18"; 
+                    if (q.correctAnswer === null) q.correctAnswer = '18';
                 }
             }
 
-            questions.push(questionObj);
+            questions.push(q);
         }
-        
         return questions;
     }
 
-    /**
-     * Generates placeholder text for Reading and Writing passages.
-     */
-    static generateMockPassage(domain, tag) {
-        if (domain === "Information and Ideas") {
-            return `In a recent ecological study, researchers observed the foraging behaviors of the local bee population. They hypothesized that the bees would prefer the native wildflowers over the introduced species. However, data collected over a three-month period showed that 68% of the foraging time was spent on the introduced species. The researchers concluded that the higher nectar density of the introduced plants drove this unexpected preference.`;
-        } else if (domain === "Craft and Structure") {
-            return `The architect's approach to the new civic center was highly unorthodox. While her contemporaries relied on brutalist concrete blocks, she favored a more porous design, utilizing glass and lightweight steel. This design choice was not merely aesthetic; it was a deliberate attempt to foster a sense of transparency and accessibility within local government.`;
-        } else {
-            return `While historical records often focus on the grand achievements of monarchs, the daily ledgers of merchants provide a more accurate picture of the era's economic realities. These documents reveal that inflation and supply chain disruptions were common, profoundly affecting the lives of ordinary citizens in ways that royal decrees rarely acknowledge.`;
-        }
+    static generateMockPassage(domain) {
+        const passages = {
+            'Information and Ideas': 'In a recent ecological study, researchers observed the foraging behaviors of the local bee population. They hypothesized that the bees would prefer the native wildflowers over the introduced species. However, data collected over a three-month period showed that 68% of the foraging time was spent on the introduced species. The researchers concluded that the higher nectar density of the introduced plants drove this unexpected preference.',
+            'Craft and Structure': 'The architect\'s approach to the new civic center was highly unorthodox. While her contemporaries relied on brutalist concrete blocks, she favored a more porous design, utilizing glass and lightweight steel. This design choice was not merely aesthetic; it was a deliberate attempt to foster a sense of transparency and accessibility within local government.',
+            'Expression of Ideas': 'While historical records often focus on the grand achievements of monarchs, the daily ledgers of merchants provide a more accurate picture of the era\'s economic realities. These documents reveal that inflation and supply chain disruptions were common, profoundly affecting the lives of ordinary citizens in ways that royal decrees rarely acknowledge.',
+            'Standard English Conventions': 'The committee, after reviewing dozens of proposals and consulting with community leaders, finally selected a design that balanced aesthetic appeal with practical considerations for accessibility and sustainability.'
+        };
+        return passages[domain] || passages['Information and Ideas'];
     }
 }
 
-// Make the class globally available so UI.js and Engine.js can access it
 window.PDFProcessor = PDFProcessor;
