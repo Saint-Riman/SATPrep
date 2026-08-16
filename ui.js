@@ -1,9 +1,10 @@
 /**
  * ui.js
- * Auth, dashboard, Desmos, review mode, skill profile rendering.
+ * Auth, dashboard, Desmos, review mode, OpenAI key handling (localStorage only).
  */
 
 const STORAGE_KEY = 'dsat_prep_hub_v1';
+const OPENAI_KEY_STORAGE = 'dsat_openai_key';
 
 class Storage {
     static load() {
@@ -47,6 +48,14 @@ class Storage {
         if (user.history.length > 30) user.history = user.history.slice(0, 30);
         this.upsertUser(username, { history: user.history });
     }
+
+    static getOpenAIKey() {
+        return localStorage.getItem(OPENAI_KEY_STORAGE) || '';
+    }
+    static setOpenAIKey(key) {
+        if (key) localStorage.setItem(OPENAI_KEY_STORAGE, key.trim());
+        else localStorage.removeItem(OPENAI_KEY_STORAGE);
+    }
 }
 
 class UIController {
@@ -63,7 +72,38 @@ class UIController {
         this.bindDashboard();
         this.bindTestControls();
         this.bindResults();
+        this.bindOpenAISettings();
         this.checkSession();
+    }
+
+    bindOpenAISettings() {
+        const input = document.getElementById('openai-key-input');
+        const status = document.getElementById('openai-key-status');
+        const saved = Storage.getOpenAIKey();
+        if (saved) {
+            input.value = saved;
+            status.textContent = 'Key saved in this browser. GPT-4o-mini explanations available in Review.';
+            status.style.color = 'var(--success)';
+        }
+
+        document.getElementById('save-openai-key-btn').addEventListener('click', () => {
+            const key = input.value.trim();
+            if (!key.startsWith('sk-')) {
+                status.textContent = 'Key should start with sk- or sk-proj-';
+                status.style.color = 'var(--danger)';
+                return;
+            }
+            Storage.setOpenAIKey(key);
+            status.textContent = 'Key saved. It never leaves this browser except when calling OpenAI.';
+            status.style.color = 'var(--success)';
+        });
+
+        document.getElementById('clear-openai-key-btn').addEventListener('click', () => {
+            Storage.setOpenAIKey('');
+            input.value = '';
+            status.textContent = 'No key saved — using local explanations.';
+            status.style.color = 'var(--text-muted)';
+        });
     }
 
     bindAuth() {
@@ -186,6 +226,87 @@ class UIController {
                 }
             });
         }
+
+        const aiBtn = document.getElementById('generate-ai-explanations-btn');
+        if (aiBtn) {
+            aiBtn.addEventListener('click', () => this.generateAIExplanations());
+        }
+    }
+
+    async generateAIExplanations() {
+        const key = Storage.getOpenAIKey();
+        const status = document.getElementById('review-ai-status');
+        const items = window._lastReviewItems || [];
+
+        if (!key) {
+            status.textContent = 'No OpenAI key saved. Add one on the dashboard first.';
+            return;
+        }
+        if (!items.length) {
+            status.textContent = 'No review items available.';
+            return;
+        }
+
+        // Only enhance incorrect ones to save tokens / time
+        const toExplain = items.filter(i => !i.isCorrect).slice(0, 12);
+        if (!toExplain.length) {
+            status.textContent = 'No incorrect answers to explain.';
+            return;
+        }
+
+        status.textContent = `Generating explanations for ${toExplain.length} missed questions with GPT-4o-mini…`;
+        const btn = document.getElementById('generate-ai-explanations-btn');
+        btn.disabled = true;
+
+        try {
+            for (const item of toExplain) {
+                const prompt = `You are a patient DSAT tutor. Explain clearly and briefly (3-5 sentences) why the correct answer is right and why the student's answer is wrong for this skill: ${item.tag}.
+
+Question skill: ${item.tag}
+Student answered: ${item.yourAnswer}
+Correct answer: ${item.correctAnswer}
+
+Give an easy-to-understand explanation a high-school student can follow. Do not use markdown headers.`;
+
+                const res = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${key}`
+                    },
+                    body: JSON.stringify({
+                        model: 'gpt-4o-mini',
+                        messages: [
+                            { role: 'system', content: 'You are a clear, encouraging Digital SAT tutor. Keep explanations short and practical.' },
+                            { role: 'user', content: prompt }
+                        ],
+                        max_tokens: 220,
+                        temperature: 0.4
+                    })
+                });
+
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(`OpenAI error ${res.status}: ${errText.slice(0, 200)}`);
+                }
+
+                const data = await res.json();
+                const text = data.choices?.[0]?.message?.content?.trim();
+                if (text) {
+                    item.explanation = text;
+                    item.aiGenerated = true;
+                }
+            }
+
+            // Re-render review list with updated explanations
+            window.AnalyticsEngine.renderReviewList(items);
+            status.textContent = `AI explanations added for ${toExplain.length} missed question(s).`;
+        } catch (err) {
+            console.error(err);
+            status.textContent = `Could not generate AI explanations: ${err.message}. Check your key and billing.`;
+        } finally {
+            btn.disabled = false;
+        }
     }
 
     setFile(type, file) {
@@ -266,7 +387,6 @@ class UIController {
                 document.getElementById('top-weakness-sub').textContent = 'Strong overall';
             }
 
-            // Deeper skill profile
             const skills = window.AnalyticsEngine.buildSkillProfile(history);
             const grid = document.getElementById('skills-grid');
             if (skills.length === 0) {
