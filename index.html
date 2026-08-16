@@ -3,208 +3,229 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DSAT Master | Adaptive Test Engine</title>
-    
-    <!-- External Libraries & Fonts -->
+    <title>DSAT Prep Hub | Adaptive Practice Engine</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    
-    <!-- Link to external CSS stylesheet -->
     <link rel="stylesheet" href="satprep.css">
 </head>
 <body>
 
-    <!-- ==========================================================================
-         DASHBOARD VIEW (Appears on launch)
-         ========================================================================== -->
-    <main id="dashboard-view" class="view-container">
-        <header class="dashboard-header">
-            <div class="header-titles">
-                <h1>DSAT Prep Hub</h1>
-                <p class="text-muted">Upload practice tests and track your adaptive progress.</p>
+    <!-- AUTH MODAL -->
+    <div id="auth-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>DSAT Prep Hub</h2>
+                <p>Sign in to save your scores and progress</p>
             </div>
-            <button class="btn-secondary" aria-label="User Profile">
-                <i class="fas fa-user-circle"></i> International Profile
-            </button>
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login" id="tab-login">Log In</button>
+                <button class="auth-tab" data-tab="signup" id="tab-signup">Sign Up</button>
+            </div>
+            <div id="auth-error" class="auth-error"></div>
+            <form id="auth-form">
+                <div class="form-group">
+                    <label class="label" for="auth-username">Username</label>
+                    <input class="input" type="text" id="auth-username" placeholder="Choose a username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label class="label" for="auth-password">Password</label>
+                    <input class="input" type="password" id="auth-password" placeholder="Enter password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:0.5rem;" id="auth-submit-btn">Log In</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===================== DASHBOARD ===================== -->
+    <main id="dashboard-view" class="view-container hidden">
+        <header class="dashboard-header">
+            <div class="brand">
+                <div class="brand-icon"><i class="fas fa-graduation-cap"></i></div>
+                <div>
+                    <h1>DSAT Prep Hub</h1>
+                    <p>Adaptive practice · Bluebook experience</p>
+                </div>
+            </div>
+            <div class="flex-gap">
+                <div class="user-chip" id="user-chip">
+                    <div class="user-avatar" id="user-avatar">?</div>
+                    <span id="user-display-name">Guest</span>
+                </div>
+                <button class="btn btn-ghost btn-sm" id="logout-btn" title="Log out">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
         </header>
 
-        <!-- User Statistics -->
+        <!-- Dynamic Stats -->
         <section class="stats-grid">
             <div class="stat-card">
-                <h3>Average Score</h3>
-                <h2 class="stat-highlight primary-text">1450</h2>
-                <p class="text-muted">Across 4 practice tests</p>
+                <div class="stat-label">Current Score</div>
+                <div class="score-input-wrap">
+                    <input type="number" class="score-input primary" id="current-score-input" min="400" max="1600" step="10" value="1200" placeholder="—">
+                    <span class="text-muted text-sm">/ 1600</span>
+                </div>
+                <div class="stat-sub">Your latest self-reported score</div>
             </div>
             <div class="stat-card">
-                <h3>Target Score</h3>
-                <h2 class="stat-highlight">1520</h2>
-                <p class="text-muted">70 points to go</p>
+                <div class="stat-label">Target Score</div>
+                <div class="score-input-wrap">
+                    <input type="number" class="score-input" id="target-score-input" min="400" max="1600" step="10" value="1500" placeholder="—">
+                    <span class="text-muted text-sm">/ 1600</span>
+                </div>
+                <div class="stat-sub" id="points-to-go">— points to go</div>
             </div>
-            <div class="stat-card">
-                <h3>Top Weakness</h3>
-                <h2 class="stat-highlight danger-text">Craft & Structure</h2>
-                <p class="text-muted">Focus on "Words in Context"</p>
+            <div class="stat-card accent-success">
+                <div class="stat-label">Average Score</div>
+                <div class="stat-value success" id="avg-score-display">—</div>
+                <div class="stat-sub" id="avg-score-sub">No tests yet</div>
+            </div>
+            <div class="stat-card accent-warning">
+                <div class="stat-label">Top Weakness</div>
+                <div class="stat-value" style="font-size:1.25rem;" id="top-weakness-display">—</div>
+                <div class="stat-sub" id="top-weakness-sub">Complete a test to see data</div>
             </div>
         </section>
 
-        <!-- PDF Upload Zone -->
-        <section class="upload-section" id="drop-zone">
-            <i class="fas fa-file-pdf upload-icon"></i>
-            <h2>Upload Official Practice Test PDF</h2>
-            <p class="text-muted mb-4">Our AI will parse the College Board PDF and convert it into a full Bluebook digital experience.</p>
-            
-            <input type="file" id="file-input" accept="application/pdf" aria-label="Upload PDF">
-            <button class="btn-primary" id="upload-btn">
-                <i class="fas fa-upload"></i> Select PDF File
-            </button>
-            
-            <div id="upload-status" class="hidden mt-4">
+        <!-- Dual PDF Upload -->
+        <section class="upload-section">
+            <div class="upload-header">
+                <h2>Start a Practice Test</h2>
+                <p>Upload the official practice test PDF and (recommended) the answer key for accurate grading.</p>
+            </div>
+
+            <div class="upload-grid">
+                <div class="drop-zone" id="questions-drop">
+                    <div class="icon"><i class="fas fa-file-pdf"></i></div>
+                    <h3>Questions PDF</h3>
+                    <p>Required · Official practice test</p>
+                    <div class="file-name hidden" id="questions-file-name"></div>
+                    <input type="file" id="questions-input" accept="application/pdf">
+                </div>
+                <div class="drop-zone" id="answers-drop">
+                    <div class="icon"><i class="fas fa-key"></i></div>
+                    <h3>Answer Key PDF</h3>
+                    <p>Recommended · For real grading</p>
+                    <div class="file-name hidden" id="answers-file-name"></div>
+                    <input type="file" id="answers-input" accept="application/pdf">
+                </div>
+            </div>
+
+            <div class="upload-actions">
+                <p class="text-sm text-secondary" id="upload-hint">Both files improve accuracy. Answer key enables real scoring.</p>
+                <button class="btn btn-primary btn-lg" id="start-test-btn" disabled>
+                    <i class="fas fa-play"></i> Start Adaptive Test
+                </button>
+            </div>
+
+            <div id="upload-status" class="upload-status hidden">
                 <div class="loader"></div>
-                <p>AI Engine Parsing Document, Identifying Questions, and Configuring Adaptive Routing...</p>
+                <span id="upload-status-text">Parsing documents and building adaptive modules…</span>
+            </div>
+        </section>
+
+        <!-- Recent History -->
+        <section class="history-section" id="history-section">
+            <h3>Recent Practice Tests</h3>
+            <div class="history-list" id="history-list">
+                <div class="text-sm text-muted" id="history-empty">No practice tests yet. Complete one to see your progress here.</div>
             </div>
         </section>
     </main>
 
-
-    <!-- ==========================================================================
-         BLUEBOOK TEST ENGINE VIEW (Hidden until test starts)
-         ========================================================================== -->
+    <!-- ===================== TEST ENGINE ===================== -->
     <div id="test-view" class="view-container hidden">
-        <!-- Test Header (Timer and Tools) -->
         <header class="test-header">
             <div class="header-left">
-                <h3 id="section-title">Reading and Writing: Module 1</h3>
+                <h3 id="section-title" style="font-size:1rem; font-weight:600;">Reading and Writing: Module 1</h3>
             </div>
             <div class="header-center">
                 <div class="timer-display">
-                    <i class="fas fa-clock"></i> <span id="time-remaining">32:00</span>
-                    <button id="hide-time-btn" class="tool-btn text-small">Hide</button>
+                    <i class="fas fa-clock"></i>
+                    <span id="time-remaining">32:00</span>
+                    <button id="hide-time-btn" class="btn btn-ghost btn-sm" style="margin-left:0.35rem;">Hide</button>
                 </div>
             </div>
-            <div class="header-right text-right">
-                <button class="tool-btn" title="Annotate"><i class="fas fa-highlighter"></i></button>
+            <div class="header-right" style="text-align:right; display:flex; justify-content:flex-end; gap:0.35rem; align-items:center;">
+                <button class="tool-btn" title="Highlighter"><i class="fas fa-highlighter"></i></button>
                 <button class="tool-btn hidden" title="Calculator" id="calc-btn"><i class="fas fa-calculator"></i></button>
-                <button class="tool-btn" title="Desmos Graphing"><i class="fas fa-chart-line"></i></button>
-                <button class="tool-btn" title="Reference Sheet"><i class="fas fa-square-root-alt"></i></button>
-                <button class="btn-secondary ml-3 py-small" id="end-test-early-btn">End Test</button>
+                <button class="tool-btn" title="Desmos"><i class="fas fa-chart-line"></i></button>
+                <button class="tool-btn" title="Reference"><i class="fas fa-square-root-alt"></i></button>
+                <button class="btn btn-secondary btn-sm" id="end-test-early-btn" style="margin-left:0.5rem;">End Test</button>
             </div>
         </header>
 
-        <!-- Test Body (Passage and Questions) -->
         <section class="test-body">
             <div class="split-screen" id="rw-layout">
-                <!-- Left Pane: Reading Passage -->
-                <article class="passage-pane" id="passage-container">
-                    <!-- Passage text injected here by JS -->
-                </article>
-                
-                <!-- Right Pane: Questions and Options -->
+                <article class="passage-pane" id="passage-container"></article>
                 <div class="question-pane">
-                    <div class="question-text" id="question-container">
-                        <!-- Question text injected here by JS -->
-                    </div>
-                    <div id="options-container">
-                        <!-- Multiple choice options or Math grid-in injected here by JS -->
-                    </div>
+                    <div class="question-text" id="question-container"></div>
+                    <div id="options-container"></div>
                 </div>
             </div>
         </section>
 
-        <!-- Test Footer (Navigation) -->
         <footer class="test-footer">
             <div class="footer-left">
-                <span class="font-bold" id="question-number-display">Question 1 of 27</span>
-                <button class="tool-btn m-0 text-small" id="flag-btn">
+                <span class="font-semibold" id="question-number-display">Question 1 of 27</span>
+                <button class="btn btn-ghost btn-sm" id="flag-btn">
                     <i class="far fa-bookmark" id="flag-icon"></i> Mark for Review
                 </button>
             </div>
-            
-            <nav class="question-navigator" id="nav-nodes" aria-label="Question Navigation">
-                <!-- Question node buttons generated dynamically -->
-            </nav>
-
+            <nav class="question-navigator" id="nav-nodes" aria-label="Question Navigation"></nav>
             <div class="footer-right">
                 <button class="nav-btn" id="next-btn">Next <i class="fas fa-chevron-right"></i></button>
             </div>
         </footer>
     </div>
 
-
-    <!-- ==========================================================================
-         RESULTS & AI ANALYTICS VIEW (Hidden until test ends)
-         ========================================================================== -->
+    <!-- ===================== RESULTS ===================== -->
     <main id="results-view" class="view-container hidden">
-        <header class="results-header flex-between mb-4">
-            <h2>Test Results & AI Analysis</h2>
-            <button class="btn-primary" id="return-dashboard-btn">Return to Dashboard</button>
+        <header class="results-header">
+            <h2>Test Results & Analysis</h2>
+            <button class="btn btn-primary" id="return-dashboard-btn">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </button>
         </header>
 
-        <!-- Score Overview -->
         <section class="score-hero">
-            <p>Total SAT Score</p>
-            <div class="total-score" id="final-total-score">1480</div>
-            <p>98th Percentile Nationally</p>
-            
+            <div class="label">Total SAT Score</div>
+            <div class="total-score" id="final-total-score">—</div>
+            <div class="percentile" id="final-percentile">Calculating percentile…</div>
             <div class="section-scores">
-                <div class="score-box">
-                    <h3 class="highlight-cyan">Reading & Writing</h3>
-                    <h2 class="section-score-val" id="final-rw-score">720</h2>
+                <div>
+                    <h3>Reading & Writing</h3>
+                    <div class="section-score-val" id="final-rw-score">—</div>
                 </div>
-                <div class="score-box">
-                    <h3 class="highlight-cyan">Math</h3>
-                    <h2 class="section-score-val" id="final-math-score">760</h2>
+                <div>
+                    <h3>Math</h3>
+                    <div class="section-score-val" id="final-math-score">—</div>
                 </div>
             </div>
         </section>
 
-        <!-- AI Weakness Analysis -->
-        <section class="ai-analysis-panel">
-            <div class="flex-center-gap mb-3">
-                <i class="fas fa-robot text-huge primary-text"></i>
-                <h3 class="text-large">AI Weakness Diagnostic</h3>
+        <section class="ai-panel">
+            <div class="ai-panel-header">
+                <i class="fas fa-robot"></i>
+                <h3>AI Weakness Diagnostic</h3>
             </div>
-            <p class="mb-4">Based on your adaptive path and specific miss patterns, our engine has identified exactly where you are losing points.</p>
-            
-            <div id="weakness-tags" class="mb-4">
-                <!-- AI Weakness tags generated dynamically -->
-            </div>
-
-            <div class="expert-tip" id="expert-tip-container">
-                <!-- AI Expert Tips injected dynamically -->
-            </div>
+            <p class="text-secondary text-sm mb-3" style="margin-bottom:1rem;">Based on your adaptive path and miss patterns, here is exactly where points are being lost — explained simply.</p>
+            <div id="weakness-tags" class="weakness-tags"></div>
+            <div class="expert-tip" id="expert-tip-container"></div>
         </section>
 
-        <!-- Domain Breakdown -->
-        <section class="domain-breakdown">
-            <div class="domain-card">
-                <h3>Information and Ideas</h3>
-                <p class="text-muted text-small">Command of Evidence (Textual & Quantitative), Central Ideas</p>
-                <div class="progress-bar-bg"><div class="progress-bar-fill warning-bg" style="width: 75%;"></div></div>
-                <p class="text-right text-small mt-1">Needs Improvement</p>
-            </div>
-            <div class="domain-card">
-                <h3>Craft and Structure</h3>
-                <p class="text-muted text-small">Words in Context, Text Structure, Cross-Text Connections</p>
-                <div class="progress-bar-bg"><div class="progress-bar-fill success-bg" style="width: 95%;"></div></div>
-                <p class="text-right text-small mt-1">Excellent</p>
-            </div>
-            <div class="domain-card">
-                <h3>Algebra</h3>
-                <p class="text-muted text-small">Linear equations, systems, functions</p>
-                <div class="progress-bar-bg"><div class="progress-bar-fill success-bg" style="width: 100%;"></div></div>
-                <p class="text-right text-small mt-1">Perfect</p>
-            </div>
-            <div class="domain-card">
-                <h3>Advanced Math</h3>
-                <p class="text-muted text-small">Nonlinear equations, polynomials, radicals</p>
-                <div class="progress-bar-bg"><div class="progress-bar-fill primary-bg" style="width: 80%;"></div></div>
-                <p class="text-right text-small mt-1">On Track</p>
-            </div>
+        <section class="domain-grid" id="domain-breakdown">
+            <!-- Filled dynamically -->
         </section>
     </main>
 
-    <!-- JavaScript Files -->
+    <script>
+        // Configure pdf.js worker
+        if (window.pdfjsLib) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        }
+    </script>
     <script src="parser.js"></script>
     <script src="engine.js"></script>
     <script src="analytics.js"></script>
