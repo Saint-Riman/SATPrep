@@ -101,10 +101,9 @@ class AnalyticsEngine {
         document.getElementById('final-percentile').textContent =
             `Approximately ${this.approxPercentile(scoreData.total)}th percentile nationally`;
 
-        // Collect all questions with results for review + skill tracking
         const allItems = [];
         const missedTags = {};
-        const skillStats = {}; // tag -> { correct, total }
+        const skillStats = {};
 
         const collect = (qs, resps, sectionLabel, moduleLabel) => {
             qs.forEach(q => {
@@ -128,34 +127,26 @@ class AnalyticsEngine {
                     correctAnswer: this.formatAnswer(q, q.correctAnswer),
                     isCorrect: ok,
                     explanation: this.getExplanation(q, ok),
-                    text: q.text
+                    text: q.text,
+                    aiGenerated: false
                 });
             });
         };
 
         collect(testData.sections.RW.module1, userResponses.RW.module1, 'RW', 'Module 1');
-        // Only the module that was actually taken
-        const rwM2 = (/* we don't store which path easily, so include both but that's ok for review */ testData.sections.RW.module2Hard);
         collect(testData.sections.RW.module2Easy, userResponses.RW.module2, 'RW', 'Module 2');
         collect(testData.sections.RW.module2Hard, userResponses.RW.module2, 'RW', 'Module 2');
         collect(testData.sections.MATH.module1, userResponses.MATH.module1, 'Math', 'Module 1');
         collect(testData.sections.MATH.module2Easy, userResponses.MATH.module2, 'Math', 'Module 2');
         collect(testData.sections.MATH.module2Hard, userResponses.MATH.module2, 'Math', 'Module 2');
 
-        // Dedupe review items by id (because we may have pushed both easy+hard)
         const seen = new Set();
         const reviewItems = allItems.filter(item => {
             if (seen.has(item.id)) return false;
-            // Only keep items the user actually answered or that belong to the path taken
-            // Simpler: keep if they have a response or we show all attempted
             seen.add(item.id);
-            return true;
-        }).filter(item => {
-            // Prefer items that were actually answered
             return true;
         });
 
-        // Weakness tags
         const sorted = Object.entries(missedTags).sort((a, b) => b[1] - a[1]);
         const topWeaknesses = sorted.slice(0, 5).map(([tag]) => tag);
 
@@ -190,7 +181,6 @@ class AnalyticsEngine {
         this.renderTimerAnalytics(moduleTimings);
         this.renderReviewList(reviewItems);
 
-        // Persist richer skill data + history
         const username = window.Storage && window.Storage.load().session;
         if (username) {
             const skillSnapshot = {};
@@ -216,7 +206,6 @@ class AnalyticsEngine {
             });
         }
 
-        // Stash review items for the UI button
         window._lastReviewItems = reviewItems;
     }
 
@@ -259,8 +248,6 @@ class AnalyticsEngine {
         const list = document.getElementById('review-list');
         if (!list) return;
 
-        // Only show items the user actually interacted with (has an answer or was in a taken path)
-        // For simplicity show unique answered or all with a response preference
         const answered = items.filter(i => i.yourAnswer !== '—');
         const toShow = answered.length ? answered : items.slice(0, 40);
 
@@ -278,7 +265,7 @@ class AnalyticsEngine {
                 <div class="review-answers">
                     Your answer: <strong>${item.yourAnswer}</strong> &nbsp;·&nbsp; Correct: <strong>${item.correctAnswer}</strong>
                 </div>
-                <div class="review-explanation">${item.explanation}</div>
+                <div class="review-explanation ${item.aiGenerated ? 'ai' : ''}">${item.explanation}</div>
             </div>
         `).join('');
     }
@@ -333,7 +320,6 @@ class AnalyticsEngine {
         return 40;
     }
 
-    /** Aggregate skills across all history for the dashboard */
     static buildSkillProfile(history) {
         const agg = {};
         history.forEach(h => {
@@ -351,7 +337,7 @@ class AnalyticsEngine {
                 accuracy: s.total ? Math.round((s.correct / s.total) * 100) : 0,
                 total: s.total
             }))
-            .sort((a, b) => a.accuracy - b.accuracy); // weakest first
+            .sort((a, b) => a.accuracy - b.accuracy);
     }
 }
 
