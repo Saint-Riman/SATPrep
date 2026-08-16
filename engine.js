@@ -1,6 +1,6 @@
 /**
  * engine.js
- * Core adaptive test engine (Bluebook-style modules, timer, navigation, routing).
+ * Adaptive test engine with official timing, SPR support, and module timing analytics.
  */
 
 class SATTestEngine {
@@ -12,7 +12,8 @@ class SATTestEngine {
             isHardModule: false,
             currentIndex: 0,
             timeRemaining: 0,
-            timerInterval: null
+            timerInterval: null,
+            moduleStartedAt: null
         };
         this.userResponses = {
             RW: { module1: {}, module2: {} },
@@ -22,6 +23,12 @@ class SATTestEngine {
             RW: { module1: new Set(), module2: new Set() },
             MATH: { module1: new Set(), module2: new Set() }
         };
+        // Timing analytics (seconds spent per module)
+        this.moduleTimings = {
+            RW: { module1: null, module2: null },
+            MATH: { module1: null, module2: null }
+        };
+        this.desmosCalc = null;
         this.bindEvents();
     }
 
@@ -38,14 +45,16 @@ class SATTestEngine {
             RW: { module1: new Set(), module2: new Set() },
             MATH: { module1: new Set(), module2: new Set() }
         };
+        this.moduleTimings = {
+            RW: { module1: null, module2: null },
+            MATH: { module1: null, module2: null }
+        };
         this.loadModule();
     }
 
     getCurrentQuestions() {
         const sec = this.currentState.section;
-        if (this.currentState.module === 1) {
-            return this.testData.sections[sec].module1;
-        }
+        if (this.currentState.module === 1) return this.testData.sections[sec].module1;
         return this.currentState.isHardModule
             ? this.testData.sections[sec].module2Hard
             : this.testData.sections[sec].module2Easy;
@@ -62,7 +71,9 @@ class SATTestEngine {
     loadModule() {
         this.currentState.currentIndex = 0;
         const isRW = this.currentState.section === 'RW';
+        // Official College Board DSAT timing
         this.currentState.timeRemaining = isRW ? 32 * 60 : 35 * 60;
+        this.currentState.moduleStartedAt = Date.now();
 
         document.getElementById('section-title').textContent =
             `${isRW ? 'Reading and Writing' : 'Math'}: Module ${this.currentState.module}`;
@@ -82,9 +93,7 @@ class SATTestEngine {
         this.currentState.timerInterval = setInterval(() => {
             this.currentState.timeRemaining--;
             this.updateTimerDisplay();
-            if (this.currentState.timeRemaining <= 0) {
-                this.handleModuleEnd(true);
-            }
+            if (this.currentState.timeRemaining <= 0) this.handleModuleEnd(true);
         }, 1000);
     }
 
@@ -98,6 +107,14 @@ class SATTestEngine {
         const secs = this.currentState.timeRemaining % 60;
         timeSpan.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
         timeSpan.style.color = this.currentState.timeRemaining < 300 ? 'var(--danger)' : 'inherit';
+    }
+
+    recordModuleTime() {
+        if (this.currentState.moduleStartedAt) {
+            const elapsed = Math.round((Date.now() - this.currentState.moduleStartedAt) / 1000);
+            const key = `module${this.currentState.module}`;
+            this.moduleTimings[this.currentState.section][key] = elapsed;
+        }
     }
 
     renderNodes() {
@@ -178,14 +195,20 @@ class SATTestEngine {
             });
             optsContainer.appendChild(list);
         } else if (q.type === 'SPR') {
+            // Student-Produced Response (manual entry) — mirrors real DSAT
             optsContainer.innerHTML = `
                 <div class="spr-input-container">
-                    <p class="text-muted text-sm mb-2">Enter your answer. Fractions and decimals are accepted.</p>
-                    <input type="text" class="spr-input" id="spr-input-${q.id}" placeholder="Enter answer"
-                        value="${responses[q.id] || ''}">
+                    <div class="spr-label">Enter your answer</div>
+                    <input type="text" class="spr-input" id="spr-input-${q.id}"
+                        placeholder="e.g. 18 or 3/4"
+                        value="${responses[q.id] || ''}"
+                        inputmode="decimal"
+                        autocomplete="off">
+                    <div class="spr-hint">Fractions, decimals, and integers are accepted. No units.</div>
                 </div>
             `;
             const inputField = document.getElementById(`spr-input-${q.id}`);
+            inputField.focus();
             inputField.addEventListener('input', (e) => {
                 responses[q.id] = e.target.value.trim();
                 this.renderNodes();
@@ -217,7 +240,7 @@ class SATTestEngine {
             this.renderNodes();
             document.querySelector('.question-pane').scrollTop = 0;
         } else {
-            if (confirm('Are you sure you want to end this module? You cannot return to these questions.')) {
+            if (confirm('End this module? You cannot return to these questions.')) {
                 this.handleModuleEnd(false);
             }
         }
@@ -225,10 +248,10 @@ class SATTestEngine {
 
     handleModuleEnd(isTimeout) {
         clearInterval(this.currentState.timerInterval);
+        this.recordModuleTime();
         if (isTimeout) alert('Time is up! Moving to the next section.');
 
         if (this.currentState.module === 1) {
-            // Adaptive routing
             const questions = this.getCurrentQuestions();
             const responses = this.getCurrentResponseMap();
             let correct = 0;
@@ -256,11 +279,36 @@ class SATTestEngine {
 
     finishTest() {
         clearInterval(this.currentState.timerInterval);
+        this.recordModuleTime();
         if (window.AnalyticsEngine && window.UIControllerInstance) {
             const results = window.AnalyticsEngine.calculateScore(this.testData, this.userResponses);
-            window.AnalyticsEngine.generateReport(this.testData, this.userResponses, results);
+            window.AnalyticsEngine.generateReport(
+                this.testData,
+                this.userResponses,
+                results,
+                this.moduleTimings
+            );
             window.UIControllerInstance.showResultsView();
         }
+    }
+
+    openDesmos() {
+        const modal = document.getElementById('desmos-modal');
+        modal.classList.remove('hidden');
+        if (!this.desmosCalc) {
+            const elt = document.getElementById('desmos-calculator');
+            this.desmosCalc = Desmos.GraphingCalculator(elt, {
+                keypad: true,
+                expressions: true,
+                settingsMenu: true,
+                zoomButtons: true,
+                expressionsTopbar: true
+            });
+        }
+    }
+
+    closeDesmos() {
+        document.getElementById('desmos-modal').classList.add('hidden');
     }
 
     bindEvents() {
@@ -271,6 +319,9 @@ class SATTestEngine {
                 this.finishTest();
             }
         });
+        document.getElementById('desmos-btn').addEventListener('click', () => this.openDesmos());
+        document.getElementById('calc-btn').addEventListener('click', () => this.openDesmos());
+        document.getElementById('close-desmos-btn').addEventListener('click', () => this.closeDesmos());
     }
 }
 
