@@ -1,7 +1,6 @@
 /**
- * ui.js
- * Bluebook-style dashboard: practice test selector, tips, analytics, Desmos.
- * PDF upload removed — content is pre-loaded from tests-data.js
+ * ui.js — Bluebook-style app shell
+ * Landing · Hamburger · Practice / Tips / Profile / Skills · Separate RW & Math scores
  */
 
 const STORAGE_KEY = 'dsat_prep_hub_v1';
@@ -12,9 +11,7 @@ class Storage {
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
             return raw ? JSON.parse(raw) : { users: {}, session: null };
-        } catch {
-            return { users: {}, session: null };
-        }
+        } catch { return { users: {}, session: null }; }
     }
     static save(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
     static getCurrentUser() {
@@ -25,9 +22,22 @@ class Storage {
         const data = this.load();
         if (!data.users[username]) {
             data.users[username] = {
-                password: '', currentScore: 1200, targetScore: 1500,
+                password: '',
+                rwCurrent: 600, rwTarget: 750,
+                mathCurrent: 600, mathTarget: 750,
                 history: [], createdAt: new Date().toISOString()
             };
+        }
+        // Migrate old total-only scores if present
+        if (data.users[username].currentScore && !data.users[username].rwCurrent) {
+            const half = Math.round((data.users[username].currentScore || 1200) / 2);
+            data.users[username].rwCurrent = half;
+            data.users[username].mathCurrent = half;
+        }
+        if (data.users[username].targetScore && !data.users[username].rwTarget) {
+            const half = Math.round((data.users[username].targetScore || 1500) / 2);
+            data.users[username].rwTarget = half;
+            data.users[username].mathTarget = half;
         }
         Object.assign(data.users[username], updates);
         this.save(data);
@@ -49,9 +59,7 @@ class Storage {
         if (user.history.length > 30) user.history = user.history.slice(0, 30);
         this.upsertUser(username, { history: user.history });
     }
-    static getOpenAIKey() {
-        return localStorage.getItem(OPENAI_KEY_STORAGE) || '';
-    }
+    static getOpenAIKey() { return localStorage.getItem(OPENAI_KEY_STORAGE) || ''; }
     static setOpenAIKey(key) {
         if (key) localStorage.setItem(OPENAI_KEY_STORAGE, key.trim());
         else localStorage.removeItem(OPENAI_KEY_STORAGE);
@@ -61,68 +69,70 @@ class Storage {
 class UIController {
     constructor() {
         this.views = {
+            landing: document.getElementById('landing-view'),
             dashboard: document.getElementById('dashboard-view'),
             test: document.getElementById('test-view'),
             results: document.getElementById('results-view')
         };
         this.authMode = 'login';
+        this.currentSection = 'practice';
+        this.bindLanding();
         this.bindAuth();
-        this.bindDashboard();
-        this.bindTestControls();
+        this.bindNav();
+        this.bindScores();
         this.bindResults();
         this.bindOpenAISettings();
-        this.checkSession();
+        this.bindTestControls();
+        this.boot();
     }
 
-    bindOpenAISettings() {
-        const input = document.getElementById('openai-key-input');
-        const status = document.getElementById('openai-key-status');
-        if (!input || !status) return;
-        const saved = Storage.getOpenAIKey();
-        if (saved) {
-            input.value = saved;
-            status.textContent = 'Key saved in this browser. GPT-4o-mini explanations available in Review.';
-            status.style.color = 'var(--success)';
+    boot() {
+        const user = Storage.getCurrentUser();
+        if (user) {
+            this.hideLanding();
+            this.hideAuth();
+            this.showDashboard();
+            this.refreshDashboard();
+        } else {
+            this.showLanding();
         }
-        document.getElementById('save-openai-key-btn')?.addEventListener('click', () => {
-            const key = input.value.trim();
-            if (!key.startsWith('sk-')) {
-                status.textContent = 'Key should start with sk- or sk-proj-';
-                status.style.color = 'var(--danger)';
-                return;
-            }
-            Storage.setOpenAIKey(key);
-            status.textContent = 'Key saved. It never leaves this browser except when calling OpenAI.';
-            status.style.color = 'var(--success)';
-        });
-        document.getElementById('clear-openai-key-btn')?.addEventListener('click', () => {
-            Storage.setOpenAIKey('');
-            input.value = '';
-            status.textContent = 'No key saved — using local explanations.';
-            status.style.color = 'var(--text-muted)';
-        });
     }
 
+    /* ---- Landing ---- */
+    bindLanding() {
+        document.getElementById('landing-start-btn')?.addEventListener('click', () => {
+            this.hideLanding();
+            this.showAuth();
+        });
+    }
+    showLanding() {
+        this.hideAllViews();
+        this.views.landing?.classList.remove('hidden');
+    }
+    hideLanding() {
+        this.views.landing?.classList.add('hidden');
+    }
+
+    /* ---- Auth ---- */
     bindAuth() {
         const form = document.getElementById('auth-form');
         const tabLogin = document.getElementById('tab-login');
         const tabSignup = document.getElementById('tab-signup');
         const submitBtn = document.getElementById('auth-submit-btn');
-        const errorEl = document.getElementById('auth-error');
 
         tabLogin?.addEventListener('click', () => {
             this.authMode = 'login';
             tabLogin.classList.add('active');
-            tabSignup.classList.remove('active');
-            submitBtn.textContent = 'Log In';
-            errorEl.classList.remove('show');
+            tabSignup?.classList.remove('active');
+            if (submitBtn) submitBtn.textContent = 'Log In';
+            document.getElementById('auth-error')?.classList.remove('show');
         });
         tabSignup?.addEventListener('click', () => {
             this.authMode = 'signup';
             tabSignup.classList.add('active');
-            tabLogin.classList.remove('active');
-            submitBtn.textContent = 'Create Account';
-            errorEl.classList.remove('show');
+            tabLogin?.classList.remove('active');
+            if (submitBtn) submitBtn.textContent = 'Create Account';
+            document.getElementById('auth-error')?.classList.remove('show');
         });
 
         form?.addEventListener('submit', (e) => {
@@ -137,73 +147,164 @@ class UIController {
                 if (data.users[username]) return this.showAuthError('That username is already taken.');
                 Storage.upsertUser(username, { password });
                 Storage.setSession(username);
-                this.hideAuth();
-                this.refreshDashboard();
             } else {
                 const user = data.users[username];
                 if (!user || user.password !== password) return this.showAuthError('Incorrect username or password.');
                 Storage.setSession(username);
-                this.hideAuth();
-                this.refreshDashboard();
             }
+            this.hideAuth();
+            this.showDashboard();
+            this.refreshDashboard();
         });
 
-        document.getElementById('logout-btn')?.addEventListener('click', () => {
-            Storage.clearSession();
-            this.showAuth();
-            this.views.dashboard.classList.add('hidden');
-        });
+        document.getElementById('drawer-logout-btn')?.addEventListener('click', () => this.logout());
     }
 
     showAuthError(msg) {
         const el = document.getElementById('auth-error');
+        if (!el) return;
         el.textContent = msg;
         el.classList.add('show');
     }
-    showAuth() { document.getElementById('auth-modal').classList.remove('hidden'); }
-    hideAuth() { document.getElementById('auth-modal').classList.add('hidden'); }
+    showAuth() { document.getElementById('auth-modal')?.classList.remove('hidden'); }
+    hideAuth() { document.getElementById('auth-modal')?.classList.add('hidden'); }
 
-    checkSession() {
-        const user = Storage.getCurrentUser();
-        if (user) {
-            this.hideAuth();
-            this.refreshDashboard();
-        } else {
-            this.showAuth();
-            this.views.dashboard.classList.add('hidden');
-        }
+    logout() {
+        Storage.clearSession();
+        this.closeDrawer();
+        this.hideAllViews();
+        this.showLanding();
     }
 
-    bindDashboard() {
-        const currentInput = document.getElementById('current-score-input');
-        const targetInput = document.getElementById('target-score-input');
-        const saveScores = () => {
-            const user = Storage.getCurrentUser();
-            if (!user) return;
-            const current = parseInt(currentInput.value, 10) || 1200;
-            const target = parseInt(targetInput.value, 10) || 1500;
-            Storage.upsertUser(Storage.load().session, {
-                currentScore: Math.min(1600, Math.max(400, current)),
-                targetScore: Math.min(1600, Math.max(400, target))
+    /* ---- Hamburger / Nav ---- */
+    bindNav() {
+        document.getElementById('hamburger-btn')?.addEventListener('click', () => this.openDrawer());
+        document.getElementById('close-drawer-btn')?.addEventListener('click', () => this.closeDrawer());
+        document.getElementById('nav-drawer-overlay')?.addEventListener('click', () => this.closeDrawer());
+
+        document.querySelectorAll('.nav-link').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const section = btn.dataset.nav;
+                this.switchSection(section);
+                this.closeDrawer();
             });
-            this.updatePointsToGo();
-        };
-        currentInput?.addEventListener('change', saveScores);
-        targetInput?.addEventListener('change', saveScores);
-        currentInput?.addEventListener('blur', saveScores);
-        targetInput?.addEventListener('blur', saveScores);
+        });
 
         document.getElementById('return-dashboard-btn')?.addEventListener('click', () => {
             this.showDashboard();
+            this.switchSection('practice');
             this.refreshDashboard();
         });
     }
 
+    openDrawer() {
+        document.getElementById('nav-drawer')?.classList.add('open');
+        document.getElementById('nav-drawer-overlay')?.classList.remove('hidden');
+        const user = Storage.getCurrentUser();
+        const nameEl = document.getElementById('drawer-username');
+        if (nameEl) nameEl.textContent = Storage.load().session || 'Guest';
+    }
+    closeDrawer() {
+        document.getElementById('nav-drawer')?.classList.remove('open');
+        document.getElementById('nav-drawer-overlay')?.classList.add('hidden');
+    }
+
+    switchSection(name) {
+        this.currentSection = name;
+        ['practice', 'tips', 'profile', 'skills'].forEach(s => {
+            const el = document.getElementById(`section-${s}`);
+            if (el) el.classList.toggle('hidden', s !== name);
+        });
+        document.querySelectorAll('.nav-link').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.nav === name);
+        });
+    }
+
+    /* ---- Separate RW / Math scores ---- */
+    bindScores() {
+        const ids = ['rw-current-input', 'rw-target-input', 'math-current-input', 'math-target-input'];
+        const save = () => this.saveSectionScores();
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            el?.addEventListener('change', save);
+            el?.addEventListener('blur', save);
+        });
+    }
+
+    saveSectionScores() {
+        const user = Storage.getCurrentUser();
+        if (!user) return;
+        const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+        const rwC = clamp(parseInt(document.getElementById('rw-current-input')?.value, 10) || 600, 200, 800);
+        const rwT = clamp(parseInt(document.getElementById('rw-target-input')?.value, 10) || 750, 200, 800);
+        const mC = clamp(parseInt(document.getElementById('math-current-input')?.value, 10) || 600, 200, 800);
+        const mT = clamp(parseInt(document.getElementById('math-target-input')?.value, 10) || 750, 200, 800);
+        Storage.upsertUser(Storage.load().session, {
+            rwCurrent: rwC, rwTarget: rwT,
+            mathCurrent: mC, mathTarget: mT
+        });
+        this.updatePointsDisplay();
+    }
+
+    updatePointsDisplay() {
+        const rwC = parseInt(document.getElementById('rw-current-input')?.value, 10) || 0;
+        const rwT = parseInt(document.getElementById('rw-target-input')?.value, 10) || 0;
+        const mC = parseInt(document.getElementById('math-current-input')?.value, 10) || 0;
+        const mT = parseInt(document.getElementById('math-target-input')?.value, 10) || 0;
+
+        const fmt = (cur, tgt, elId) => {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            const d = tgt - cur;
+            if (d > 0) el.textContent = `${d} points to go`;
+            else if (d < 0) el.textContent = `${Math.abs(d)} points above target`;
+            else el.textContent = 'Target reached';
+        };
+        fmt(rwC, rwT, 'rw-points-to-go');
+        fmt(mC, mT, 'math-points-to-go');
+
+        const totalEl = document.getElementById('combined-total-display');
+        const targetEl = document.getElementById('combined-target-display');
+        if (totalEl) totalEl.textContent = rwC + mC;
+        if (targetEl) targetEl.textContent = rwT + mT;
+    }
+
+    /* ---- OpenAI ---- */
+    bindOpenAISettings() {
+        const input = document.getElementById('openai-key-input');
+        const status = document.getElementById('openai-key-status');
+        if (!input || !status) return;
+        const saved = Storage.getOpenAIKey();
+        if (saved) {
+            input.value = saved;
+            status.textContent = 'Key saved. GPT-4o-mini available in Review.';
+            status.style.color = 'var(--success)';
+        }
+        document.getElementById('save-openai-key-btn')?.addEventListener('click', () => {
+            const key = input.value.trim();
+            if (!key.startsWith('sk-')) {
+                status.textContent = 'Key should start with sk- or sk-proj-';
+                status.style.color = 'var(--danger)';
+                return;
+            }
+            Storage.setOpenAIKey(key);
+            status.textContent = 'Key saved.';
+            status.style.color = 'var(--success)';
+        });
+        document.getElementById('clear-openai-key-btn')?.addEventListener('click', () => {
+            Storage.setOpenAIKey('');
+            input.value = '';
+            status.textContent = 'No key saved';
+            status.style.color = 'var(--text-muted)';
+        });
+    }
+
+    /* ---- Results / AI explain ---- */
     bindResults() {
         document.getElementById('review-questions-btn')?.addEventListener('click', () => {
             const section = document.getElementById('review-section');
-            section.classList.toggle('hidden');
-            if (!section.classList.contains('hidden')) {
+            section?.classList.toggle('hidden');
+            if (section && !section.classList.contains('hidden')) {
                 section.scrollIntoView({ behavior: 'smooth' });
             }
         });
@@ -214,110 +315,91 @@ class UIController {
         const key = Storage.getOpenAIKey();
         const status = document.getElementById('review-ai-status');
         const items = window._lastReviewItems || [];
-        if (!key) { status.textContent = 'No OpenAI key saved. Add one on the dashboard first.'; return; }
-        if (!items.length) { status.textContent = 'No review items available.'; return; }
+        if (!key) { if (status) status.textContent = 'No OpenAI key saved. Add one in Profile.'; return; }
+        if (!items.length) { if (status) status.textContent = 'No review items.'; return; }
         const toExplain = items.filter(i => !i.isCorrect).slice(0, 12);
-        if (!toExplain.length) { status.textContent = 'No incorrect answers to explain.'; return; }
-        status.textContent = `Generating explanations for ${toExplain.length} missed questions…`;
+        if (!toExplain.length) { if (status) status.textContent = 'No incorrect answers to explain.'; return; }
+        if (status) status.textContent = `Generating ${toExplain.length} explanations…`;
         const btn = document.getElementById('generate-ai-explanations-btn');
-        btn.disabled = true;
+        if (btn) btn.disabled = true;
         try {
             for (const item of toExplain) {
-                const prompt = `You are a patient DSAT tutor. Explain clearly and briefly (3-5 sentences) why the correct answer is right and why the student's answer is wrong for this skill: ${item.tag}.\n\nStudent answered: ${item.yourAnswer}\nCorrect answer: ${item.correctAnswer}\n\nKeep it practical for a high-school student.`;
+                const prompt = `You are a patient DSAT tutor. Explain in 3-5 sentences why the correct answer is right and the student's answer is wrong. Skill: ${item.tag}. Student: ${item.yourAnswer}. Correct: ${item.correctAnswer}.`;
                 const res = await fetch('https://api.openai.com/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
                     body: JSON.stringify({
                         model: 'gpt-4o-mini',
                         messages: [
-                            { role: 'system', content: 'You are a clear, encouraging Digital SAT tutor.' },
+                            { role: 'system', content: 'Clear, encouraging Digital SAT tutor.' },
                             { role: 'user', content: prompt }
                         ],
-                        max_tokens: 220,
-                        temperature: 0.4
+                        max_tokens: 220, temperature: 0.4
                     })
                 });
-                if (!res.ok) throw new Error(`OpenAI error ${res.status}`);
+                if (!res.ok) throw new Error(`OpenAI ${res.status}`);
                 const data = await res.json();
                 const text = data.choices?.[0]?.message?.content?.trim();
                 if (text) { item.explanation = text; item.aiGenerated = true; }
             }
-            window.AnalyticsEngine.renderReviewList(items);
-            status.textContent = `AI explanations added for ${toExplain.length} missed question(s).`;
+            window.AnalyticsEngine?.renderReviewList?.(items);
+            if (status) status.textContent = `AI explanations added for ${toExplain.length} question(s).`;
         } catch (err) {
-            console.error(err);
-            status.textContent = `Could not generate AI explanations: ${err.message}`;
+            if (status) status.textContent = `Could not generate: ${err.message}`;
         } finally {
-            btn.disabled = false;
+            if (btn) btn.disabled = false;
         }
     }
 
-    /** Render official practice test cards */
+    /* ---- Test cards & tips ---- */
     renderTestCards() {
         const container = document.getElementById('test-cards');
         if (!container || !window.OFFICIAL_TESTS) return;
-
         const tests = Object.values(window.OFFICIAL_TESTS);
         container.innerHTML = tests.map(t => {
             const available = t.available === true;
-            const qCount = available && t.sections?.RW?.module1
-                ? t.sections.RW.module1.length
-                : 0;
-            return `
-                <div class="test-card ${available ? '' : 'disabled'}" data-test-id="${t.testId}">
-                    <div class="test-card-top">
-                        <div class="test-card-icon"><i class="fas fa-book-open"></i></div>
-                        <div>
-                            <h3>${t.title}</h3>
-                            <p class="text-sm text-secondary">${available ? `${qCount} questions ready · RW Module 1` : 'Content being prepared'}</p>
-                        </div>
+            const qCount = available && t.sections?.RW?.module1 ? t.sections.RW.module1.length : 0;
+            return `<div class="test-card ${available ? '' : 'disabled'}">
+                <div class="test-card-top">
+                    <div class="test-card-icon"><i class="fas fa-book-open"></i></div>
+                    <div>
+                        <h3>${t.title}</h3>
+                        <p class="text-sm text-secondary">${available ? `${qCount} questions · RW Module 1` : 'Coming soon'}</p>
                     </div>
-                    <button class="btn ${available ? 'btn-primary' : 'btn-secondary'} btn-sm start-official-btn"
-                            data-test-id="${t.testId}" ${available ? '' : 'disabled'}>
-                        ${available ? '<i class="fas fa-play"></i> Start' : 'Coming soon'}
-                    </button>
-                </div>`;
+                </div>
+                <button class="btn ${available ? 'btn-primary' : 'btn-secondary'} btn-sm start-official-btn"
+                    data-test-id="${t.testId}" ${available ? '' : 'disabled'}>
+                    ${available ? '<i class="fas fa-play"></i> Start' : 'Soon'}
+                </button>
+            </div>`;
         }).join('');
-
         container.querySelectorAll('.start-official-btn:not([disabled])').forEach(btn => {
             btn.addEventListener('click', () => this.startOfficialTest(btn.dataset.testId));
         });
     }
 
-    /** Render tips & tricks */
     renderTips() {
         const container = document.getElementById('tips-list');
         if (!container || !window.SAT_TIPS) return;
-        container.innerHTML = window.SAT_TIPS.map(t => `
-            <div class="tip-card">
-                <h4>${t.title}</h4>
-                <p>${t.tip}</p>
-            </div>`).join('');
+        container.innerHTML = window.SAT_TIPS.map(t =>
+            `<div class="tip-card"><h4>${t.title}</h4><p>${t.tip}</p></div>`
+        ).join('');
     }
 
-    /** Start a pre-loaded official practice test */
     startOfficialTest(testId) {
         const test = window.OFFICIAL_TESTS?.[testId];
         if (!test || !test.available) {
-            alert('This practice test is not yet available. Content is being structured.');
+            alert('This practice test is not yet available.');
             return;
         }
-
-        // Ensure module2 has at least some questions so the adaptive path doesn't break
-        const data = JSON.parse(JSON.stringify(test)); // deep clone
-        if (!data.sections.RW.module2Easy?.length) {
-            data.sections.RW.module2Easy = data.sections.RW.module1.slice(0, 6);
-        }
-        if (!data.sections.RW.module2Hard?.length) {
-            data.sections.RW.module2Hard = data.sections.RW.module1.slice(6);
-        }
-        // Temporary empty math so engine doesn't crash — will be filled later
+        const data = JSON.parse(JSON.stringify(test));
+        if (!data.sections.RW.module2Easy?.length) data.sections.RW.module2Easy = data.sections.RW.module1.slice(0, 6);
+        if (!data.sections.RW.module2Hard?.length) data.sections.RW.module2Hard = data.sections.RW.module1.slice(6);
         if (!data.sections.MATH.module1?.length) {
             data.sections.MATH.module1 = [];
             data.sections.MATH.module2Easy = [];
             data.sections.MATH.module2Hard = [];
         }
-
         if (window.TestEngineInstance) {
             window.TestEngineInstance.startTest(data);
             this.showTestView();
@@ -326,54 +408,69 @@ class UIController {
         }
     }
 
+    /* ---- Dashboard refresh ---- */
     refreshDashboard() {
         const user = Storage.getCurrentUser();
         if (!user) return;
-        this.views.dashboard.classList.remove('hidden');
 
-        const username = Storage.load().session;
-        document.getElementById('user-display-name').textContent = username;
-        document.getElementById('user-avatar').textContent = username.charAt(0).toUpperCase();
-        document.getElementById('current-score-input').value = user.currentScore || 1200;
-        document.getElementById('target-score-input').value = user.targetScore || 1500;
-        this.updatePointsToGo();
+        const username = Storage.load().session || 'Guest';
+        const avatar = document.getElementById('user-avatar');
+        if (avatar) avatar.textContent = username.charAt(0).toUpperCase();
+        const drawerName = document.getElementById('drawer-username');
+        if (drawerName) drawerName.textContent = username;
 
-        // Always re-render test cards + tips
+        // Section scores
+        const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+        setVal('rw-current-input', user.rwCurrent ?? 600);
+        setVal('rw-target-input', user.rwTarget ?? 750);
+        setVal('math-current-input', user.mathCurrent ?? 600);
+        setVal('math-target-input', user.mathTarget ?? 750);
+        this.updatePointsDisplay();
+
         this.renderTestCards();
         this.renderTips();
 
         const history = user.history || [];
+        const avgEl = document.getElementById('avg-score-display');
+        const avgSub = document.getElementById('avg-score-sub');
+        const weakEl = document.getElementById('top-weakness-display');
+        const weakSub = document.getElementById('top-weakness-sub');
+        const histList = document.getElementById('history-list');
+        const skillsGrid = document.getElementById('skills-grid');
+
         if (history.length === 0) {
-            document.getElementById('avg-score-display').textContent = '—';
-            document.getElementById('avg-score-sub').textContent = 'No tests yet';
-            document.getElementById('top-weakness-display').textContent = '—';
-            document.getElementById('top-weakness-sub').textContent = 'Complete a test to see data';
-            document.getElementById('history-list').innerHTML = '<div class="text-sm text-muted">No practice tests yet.</div>';
-            document.getElementById('skills-grid').innerHTML = '<div class="text-sm text-muted">Complete tests to build your skill profile.</div>';
+            if (avgEl) avgEl.textContent = '—';
+            if (avgSub) avgSub.textContent = 'No tests yet';
+            if (weakEl) weakEl.textContent = '—';
+            if (weakSub) weakSub.textContent = 'Complete a test to see data';
+            if (histList) histList.innerHTML = '<div class="text-sm text-muted" style="padding:16px;">No practice tests yet.</div>';
+            if (skillsGrid) skillsGrid.innerHTML = '<div class="text-sm text-muted">Complete tests to build your skill profile.</div>';
+            return;
+        }
+
+        const avg = Math.round(history.reduce((s, h) => s + h.total, 0) / history.length);
+        if (avgEl) avgEl.textContent = avg;
+        if (avgSub) avgSub.textContent = `Across ${history.length} test${history.length > 1 ? 's' : ''}`;
+
+        const weaknessCount = {};
+        history.forEach(h => (h.topWeaknesses || []).forEach(w => {
+            weaknessCount[w] = (weaknessCount[w] || 0) + 1;
+        }));
+        const sorted = Object.entries(weaknessCount).sort((a, b) => b[1] - a[1]);
+        if (sorted.length) {
+            if (weakEl) weakEl.textContent = sorted[0][0];
+            if (weakSub) weakSub.textContent = `Seen in ${sorted[0][1]} test${sorted[0][1] > 1 ? 's' : ''}`;
         } else {
-            const avg = Math.round(history.reduce((s, h) => s + h.total, 0) / history.length);
-            document.getElementById('avg-score-display').textContent = avg;
-            document.getElementById('avg-score-sub').textContent = `Across ${history.length} test${history.length > 1 ? 's' : ''}`;
+            if (weakEl) weakEl.textContent = 'None major';
+            if (weakSub) weakSub.textContent = 'Strong overall';
+        }
 
-            const weaknessCount = {};
-            history.forEach(h => (h.topWeaknesses || []).forEach(w => {
-                weaknessCount[w] = (weaknessCount[w] || 0) + 1;
-            }));
-            const sorted = Object.entries(weaknessCount).sort((a, b) => b[1] - a[1]);
-            if (sorted.length) {
-                document.getElementById('top-weakness-display').textContent = sorted[0][0];
-                document.getElementById('top-weakness-sub').textContent = `Seen in ${sorted[0][1]} test${sorted[0][1] > 1 ? 's' : ''}`;
+        const skills = window.AnalyticsEngine?.buildSkillProfile?.(history) || [];
+        if (skillsGrid) {
+            if (!skills.length) {
+                skillsGrid.innerHTML = '<div class="text-sm text-muted">Skill data will appear after detailed tests.</div>';
             } else {
-                document.getElementById('top-weakness-display').textContent = 'None major';
-                document.getElementById('top-weakness-sub').textContent = 'Strong overall';
-            }
-
-            const skills = window.AnalyticsEngine?.buildSkillProfile?.(history) || [];
-            const grid = document.getElementById('skills-grid');
-            if (skills.length === 0) {
-                grid.innerHTML = '<div class="text-sm text-muted">Skill data will appear after tests with detailed tracking.</div>';
-            } else {
-                grid.innerHTML = skills.slice(0, 12).map(s => {
+                skillsGrid.innerHTML = skills.slice(0, 12).map(s => {
                     let color = 'var(--success)';
                     if (s.accuracy < 60) color = 'var(--danger)';
                     else if (s.accuracy < 75) color = 'var(--warning)';
@@ -382,76 +479,60 @@ class UIController {
                         <h4>${s.tag}</h4>
                         <div class="domain">${s.domain || ''}</div>
                         <div class="skill-bar-bg"><div class="skill-bar-fill" style="width:${s.accuracy}%;background:${color}"></div></div>
-                        <div class="skill-meta"><span>${s.accuracy}% accuracy</span><span>${s.total} Qs</span></div>
+                        <div class="skill-meta"><span>${s.accuracy}%</span><span>${s.total} Qs</span></div>
                     </div>`;
                 }).join('');
             }
+        }
 
-            const list = document.getElementById('history-list');
-            list.innerHTML = history.slice(0, 8).map(h => {
+        if (histList) {
+            histList.innerHTML = history.slice(0, 8).map(h => {
                 const date = new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
                 return `<div class="history-item">
-                    <div>
-                        <div class="font-medium">${date}</div>
-                        <div class="text-xs text-muted">RW ${h.rw} · Math ${h.math}</div>
-                    </div>
+                    <div><div class="font-medium">${date}</div>
+                    <div class="text-xs text-muted">RW ${h.rw} · Math ${h.math}</div></div>
                     <div class="score">${h.total}</div>
                 </div>`;
             }).join('');
         }
     }
 
-    updatePointsToGo() {
-        const current = parseInt(document.getElementById('current-score-input').value, 10) || 0;
-        const target = parseInt(document.getElementById('target-score-input').value, 10) || 0;
-        const diff = target - current;
-        const el = document.getElementById('points-to-go');
-        if (diff > 0) el.textContent = `${diff} points to go`;
-        else if (diff < 0) el.textContent = `${Math.abs(diff)} points above target`;
-        else el.textContent = 'Target reached';
-    }
-
+    /* ---- View helpers ---- */
     hideAllViews() {
-        Object.values(this.views).forEach(v => v && v.classList.add('hidden'));
+        Object.values(this.views).forEach(v => v?.classList.add('hidden'));
     }
     showDashboard() {
         this.hideAllViews();
-        this.views.dashboard.classList.remove('hidden');
+        this.views.dashboard?.classList.remove('hidden');
+        this.switchSection(this.currentSection || 'practice');
     }
     showTestView() {
         this.hideAllViews();
-        this.views.test.classList.remove('hidden');
-        try {
-            if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen().catch(() => {});
-            }
-        } catch (e) {}
+        this.views.test?.classList.remove('hidden');
+        try { document.documentElement.requestFullscreen?.().catch(() => {}); } catch (e) {}
     }
     showResultsView() {
         this.hideAllViews();
-        this.views.results.classList.remove('hidden');
+        this.views.results?.classList.remove('hidden');
         document.getElementById('review-section')?.classList.add('hidden');
         try {
-            if (document.exitFullscreen && document.fullscreenElement) {
-                document.exitFullscreen().catch(() => {});
-            }
+            if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
         } catch (e) {}
     }
 
     bindTestControls() {
         const hideBtn = document.getElementById('hide-time-btn');
         const timeSpan = document.getElementById('time-remaining');
-        if (hideBtn && timeSpan) {
-            hideBtn.addEventListener('click', () => {
-                if (timeSpan.style.visibility === 'hidden') {
-                    timeSpan.style.visibility = 'visible';
-                    hideBtn.textContent = 'Hide';
-                } else {
-                    timeSpan.style.visibility = 'hidden';
-                    hideBtn.textContent = 'Show';
-                }
-            });
-        }
+        hideBtn?.addEventListener('click', () => {
+            if (!timeSpan) return;
+            if (timeSpan.style.visibility === 'hidden') {
+                timeSpan.style.visibility = 'visible';
+                hideBtn.textContent = 'Hide';
+            } else {
+                timeSpan.style.visibility = 'hidden';
+                hideBtn.textContent = 'Show';
+            }
+        });
     }
 }
 
