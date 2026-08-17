@@ -260,13 +260,7 @@ class UIController {
 
         try {
             for (const item of toExplain) {
-                const prompt = `You are a patient DSAT tutor. Explain clearly and briefly (3-5 sentences) why the correct answer is right and why the student's answer is wrong for this skill: ${item.tag}.
-
-Question skill: ${item.tag}
-Student answered: ${item.yourAnswer}
-Correct answer: ${item.correctAnswer}
-
-Give an easy-to-understand explanation a high-school student can follow. Do not use markdown headers.`;
+                const prompt = `You are a patient DSAT tutor. Explain clearly and briefly (3-5 sentences) why the correct answer is right and why the student's answer is wrong for this skill: ${item.tag}.\n\nQuestion skill: ${item.tag}\nStudent answered: ${item.yourAnswer}\nCorrect answer: ${item.correctAnswer}\n\nGive an easy-to-understand explanation a high-school student can follow. Do not use markdown headers.`;
 
                 const res = await fetch('https://api.openai.com/v1/chat/completions', {
                     method: 'POST',
@@ -332,20 +326,34 @@ Give an easy-to-understand explanation a high-school student can follow. Do not 
         const statusText = document.getElementById('upload-status-text');
         status.classList.remove('hidden');
         statusText.textContent = this.answersFile
-            ? 'Extracting answer key and building adaptive modules…'
-            : 'Building adaptive modules…';
+            ? 'Extracting questions, options & answer key…'
+            : 'Extracting questions and options from PDF…';
 
         try {
             const parsed = await window.PDFProcessor.parseFiles(this.questionsFile, this.answersFile);
             status.classList.add('hidden');
+
+            // Brief feedback so the user knows what was extracted
+            if (parsed.extractionNote) {
+                console.log('[SATPrep]', parsed.extractionNote);
+                // Optional: show a short toast-like message
+                if (parsed.usedRealQuestions) {
+                    // silent success – real content is being used
+                } else {
+                    // fallback happened – still usable but worth noting in console
+                }
+            }
+
             if (window.TestEngineInstance) {
                 window.TestEngineInstance.startTest(parsed);
                 this.showTestView();
-            } else alert('Test engine failed to load.');
+            } else {
+                alert('Test engine failed to load.');
+            }
         } catch (err) {
             console.error(err);
             status.classList.add('hidden');
-            alert('Error processing PDFs.');
+            alert('Error processing PDFs. Check the browser console for details.');
         }
     }
 
