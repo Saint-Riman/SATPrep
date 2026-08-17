@@ -14,28 +14,26 @@
 </head>
 <body>
 
-    <!-- ========== LANDING PAGE ========== -->
     <div id="landing-view" class="view-container">
         <div class="landing-hero">
             <div class="landing-logo">
                 <div class="brand-icon landing-icon"><i class="fas fa-graduation-cap"></i></div>
                 <h1 class="large-title">DSAT Prep</h1>
-                <p class="landing-tagline">Bluebook-style Digital SAT practice</p>
+                <p class="landing-tagline">Bluebook-faithful Digital SAT practice</p>
             </div>
-            <p class="landing-desc">Official practice tests with real timing, adaptive modules, and detailed weak-area analysis — built to feel like the real exam.</p>
+            <p class="landing-desc">Official timing. Real adaptive modules. A home base that shows exactly where you stand — and what to fix next.</p>
             <div class="landing-actions">
                 <button class="btn btn-primary btn-lg" id="landing-start-btn">Get Started</button>
-                <p class="text-sm text-secondary" style="margin-top:12px;">Free · Works offline after first load</p>
+                <p class="text-sm text-secondary" style="margin-top:12px;">Free · Progress saved on this device</p>
             </div>
             <div class="landing-features">
                 <div class="feature-chip"><i class="fas fa-clock"></i> Official timing</div>
-                <div class="feature-chip"><i class="fas fa-chart-line"></i> Desmos built-in</div>
-                <div class="feature-chip"><i class="fas fa-bullseye"></i> Weak-area tracking</div>
+                <div class="feature-chip"><i class="fas fa-columns"></i> True side-by-side</div>
+                <div class="feature-chip"><i class="fas fa-bullseye"></i> Weak-area map</div>
             </div>
         </div>
     </div>
 
-    <!-- ========== AUTH SHEET ========== -->
     <div id="auth-modal" class="modal-overlay hidden">
         <div class="modal">
             <div class="modal-header">
@@ -61,7 +59,6 @@
         </div>
     </div>
 
-    <!-- ========== HAMBURGER DRAWER ========== -->
     <div id="nav-drawer-overlay" class="nav-drawer-overlay hidden"></div>
     <aside id="nav-drawer" class="nav-drawer">
         <div class="nav-drawer-header">
@@ -75,17 +72,17 @@
             <button class="btn btn-ghost btn-sm" id="close-drawer-btn" style="min-width:44px;min-height:44px;"><i class="fas fa-times"></i></button>
         </div>
         <nav class="nav-drawer-links">
+            <button class="nav-link active" data-nav="home"><i class="fas fa-home"></i> Home</button>
             <button class="nav-link" data-nav="practice"><i class="fas fa-book-open"></i> Practice Tests</button>
             <button class="nav-link" data-nav="tips"><i class="fas fa-lightbulb"></i> Tips & Tricks</button>
+            <button class="nav-link" data-nav="skills"><i class="fas fa-chart-pie"></i> Skill Assessment</button>
             <button class="nav-link" data-nav="profile"><i class="fas fa-user"></i> My Profile</button>
-            <button class="nav-link" data-nav="skills"><i class="fas fa-chart-pie"></i> Skill Breakdown</button>
         </nav>
         <div class="nav-drawer-footer">
             <button class="btn btn-secondary btn-sm" id="drawer-logout-btn" style="width:100%;"><i class="fas fa-sign-out-alt"></i> Log Out</button>
         </div>
     </aside>
 
-    <!-- ========== DESMOS ========== -->
     <div id="desmos-modal" class="modal-overlay hidden">
         <div class="modal desmos-modal">
             <div class="desmos-header">
@@ -96,17 +93,77 @@
         </div>
     </div>
 
-    <!-- ========== DASHBOARD / APP SHELL ========== -->
     <main id="dashboard-view" class="view-container hidden">
         <header class="app-header">
             <button class="btn btn-ghost btn-sm hamburger-btn" id="hamburger-btn" style="min-width:44px;min-height:44px;"><i class="fas fa-bars"></i></button>
             <div class="brand" style="flex:1; justify-content:center;">
-                <h1 style="font-size:17px; font-weight:600;">DSAT Prep</h1>
+                <h1 style="font-size:17px; font-weight:600;" id="app-header-title">Home</h1>
             </div>
             <div class="user-avatar" id="user-avatar" style="width:32px;height:32px;font-size:13px;">?</div>
         </header>
 
-        <section id="section-practice" class="app-section">
+        <section id="section-home" class="app-section">
+            <div class="section-pad">
+                <p class="home-greeting" id="home-greeting">Welcome back</p>
+                <h2 class="title-2" style="margin-bottom:16px;" id="home-name">Your scoreboard</h2>
+
+                <div class="home-score-hero" id="home-score-hero" data-nav="profile" role="button" tabindex="0">
+                    <div class="home-score-left">
+                        <div class="stat-label" style="color:rgba(255,255,255,0.8);">Current total</div>
+                        <div class="home-score-big" id="home-current-total">1200</div>
+                        <div class="home-score-sub" id="home-rw-math-line">RW 600 · Math 600</div>
+                    </div>
+                    <div class="home-score-right">
+                        <div class="stat-label" style="color:rgba(255,255,255,0.8);">Target</div>
+                        <div class="home-target-big" id="home-target-total">1500</div>
+                        <div class="home-score-sub" id="home-gap-line">300 to go</div>
+                    </div>
+                </div>
+
+                <div class="home-insight-grid">
+                    <button class="insight-card" data-nav="skills" id="card-weakness">
+                        <div class="insight-icon danger"><i class="fas fa-bolt"></i></div>
+                        <div class="insight-label">Weakest area</div>
+                        <div class="insight-value" id="home-weakness">—</div>
+                        <div class="insight-cta">View skills <i class="fas fa-chevron-right"></i></div>
+                    </button>
+                    <button class="insight-card" data-nav="profile" id="card-highest">
+                        <div class="insight-icon success"><i class="fas fa-trophy"></i></div>
+                        <div class="insight-label">Highest score</div>
+                        <div class="insight-value" id="home-highest">—</div>
+                        <div class="insight-cta">History <i class="fas fa-chevron-right"></i></div>
+                    </button>
+                    <button class="insight-card" data-nav="profile" id="card-tests">
+                        <div class="insight-icon primary"><i class="fas fa-layer-group"></i></div>
+                        <div class="insight-label">Tests taken</div>
+                        <div class="insight-value" id="home-tests-count">0</div>
+                        <div class="insight-cta">See past tests <i class="fas fa-chevron-right"></i></div>
+                    </button>
+                    <button class="insight-card" data-nav="skills" id="card-avg">
+                        <div class="insight-icon teal"><i class="fas fa-chart-line"></i></div>
+                        <div class="insight-label">Average</div>
+                        <div class="insight-value" id="home-avg">—</div>
+                        <div class="insight-cta">Skill map <i class="fas fa-chevron-right"></i></div>
+                    </button>
+                </div>
+
+                <button class="btn btn-primary btn-lg home-cta" id="home-practice-cta" data-nav="practice">
+                    <i class="fas fa-play"></i> Take a practice test
+                </button>
+
+                <div class="home-recent" id="home-recent">
+                    <div class="flex-between" style="margin-bottom:8px;">
+                        <h3 class="headline">Recent</h3>
+                        <button class="btn btn-ghost btn-sm" data-nav="profile" style="font-size:14px;">All history</button>
+                    </div>
+                    <div id="home-recent-list" class="home-recent-list">
+                        <div class="text-sm text-muted">No tests yet — start one to unlock insights.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="section-practice" class="app-section hidden">
             <div class="section-pad">
                 <h2 class="title-2" style="margin-bottom:4px;">Practice Tests</h2>
                 <p class="text-sm text-secondary" style="margin-bottom:16px;">Official College Board Digital SAT · real timing</p>
@@ -118,8 +175,30 @@
         <section id="section-tips" class="app-section hidden">
             <div class="section-pad">
                 <h2 class="title-2" style="margin-bottom:4px;">Tips & Tricks</h2>
-                <p class="text-sm text-secondary" style="margin-bottom:16px;">Strategies that actually move your score</p>
+                <p class="text-sm text-secondary" style="margin-bottom:16px;">Strategies that move your score</p>
                 <div id="tips-list" class="tips-list"></div>
+            </div>
+        </section>
+
+        <section id="section-skills" class="app-section hidden">
+            <div class="section-pad">
+                <h2 class="title-2" style="margin-bottom:4px;">Skill Assessment</h2>
+                <p class="text-sm text-secondary" style="margin-bottom:16px;">What to work on next — ranked by weakness</p>
+                <div class="stats-grid" style="margin-bottom:20px;">
+                    <div class="stat-card">
+                        <div class="stat-label">Average</div>
+                        <div class="stat-value success" id="avg-score-display">—</div>
+                        <div class="stat-sub" id="avg-score-sub">No tests yet</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Top Weakness</div>
+                        <div class="stat-value" style="font-size:16px;" id="top-weakness-display">—</div>
+                        <div class="stat-sub" id="top-weakness-sub">After first test</div>
+                    </div>
+                </div>
+                <div id="skills-grid" class="skills-grid">
+                    <div class="text-sm text-muted">Complete tests to build your skill profile.</div>
+                </div>
             </div>
         </section>
 
@@ -202,31 +281,8 @@
                 </div>
             </div>
         </section>
-
-        <section id="section-skills" class="app-section hidden">
-            <div class="section-pad">
-                <h2 class="title-2" style="margin-bottom:4px;">Skill Breakdown</h2>
-                <p class="text-sm text-secondary" style="margin-bottom:16px;">Weak-area analysis from all practice tests</p>
-                <div class="stats-grid" style="margin-bottom:20px;">
-                    <div class="stat-card">
-                        <div class="stat-label">Average</div>
-                        <div class="stat-value success" id="avg-score-display">—</div>
-                        <div class="stat-sub" id="avg-score-sub">No tests yet</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Top Weakness</div>
-                        <div class="stat-value" style="font-size:16px;" id="top-weakness-display">—</div>
-                        <div class="stat-sub" id="top-weakness-sub">After first test</div>
-                    </div>
-                </div>
-                <div id="skills-grid" class="skills-grid">
-                    <div class="text-sm text-muted">Complete tests to build your skill profile.</div>
-                </div>
-            </div>
-        </section>
     </main>
 
-    <!-- ========== TEST ENGINE (side-by-side) ========== -->
     <div id="test-view" class="view-container hidden">
         <header class="test-header">
             <div class="header-left">
@@ -274,7 +330,6 @@
         </footer>
     </div>
 
-    <!-- ========== RESULTS ========== -->
     <main id="results-view" class="view-container hidden">
         <header class="results-header">
             <h2>Results</h2>
