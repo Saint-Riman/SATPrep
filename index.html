@@ -8,13 +8,11 @@
     <meta name="theme-color" content="#F2F2F7">
     <title>DSAT Prep Hub</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://www.desmos.com/api/v1.10/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
     <link rel="stylesheet" href="satprep.css">
 </head>
 <body>
 
-    <!-- AUTH SHEET -->
     <div id="auth-modal" class="modal-overlay">
         <div class="modal">
             <div class="modal-header">
@@ -40,7 +38,6 @@
         </div>
     </div>
 
-    <!-- DESMOS SHEET -->
     <div id="desmos-modal" class="modal-overlay hidden">
         <div class="modal desmos-modal">
             <div class="desmos-header">
@@ -51,14 +48,13 @@
         </div>
     </div>
 
-    <!-- ===================== DASHBOARD ===================== -->
     <main id="dashboard-view" class="view-container hidden">
         <header class="dashboard-header">
             <div class="brand">
                 <div class="brand-icon"><i class="fas fa-graduation-cap"></i></div>
                 <div>
                     <h1>DSAT Prep</h1>
-                    <p>Adaptive practice</p>
+                    <p>Bluebook-style practice</p>
                 </div>
             </div>
             <div class="flex-gap">
@@ -101,6 +97,21 @@
             </div>
         </section>
 
+        <section class="upload-section" id="test-selector-section">
+            <div class="upload-header">
+                <h2>Official Practice Tests</h2>
+                <p>Select a College Board Digital SAT practice test. Timing matches the real exam.</p>
+            </div>
+            <div class="test-cards" id="test-cards"></div>
+            <p class="text-sm text-secondary" style="margin-top:12px;">Official timing: Reading & Writing 32 min · Math 35 min per module</p>
+        </section>
+
+        <section class="settings-section" id="tips-section">
+            <h3 class="section-title">Top Tips & Tricks</h3>
+            <p class="text-sm text-secondary">Quick strategies for higher scores</p>
+            <div id="tips-list" class="tips-list"></div>
+        </section>
+
         <section class="settings-section">
             <h3 class="section-title">AI Explanations</h3>
             <p class="text-sm text-secondary">Optional OpenAI key for GPT-4o-mini explanations. Stored only in this browser.</p>
@@ -114,42 +125,9 @@
 
         <section class="skills-section" id="skills-section">
             <h3 class="section-title">Skill Breakdown</h3>
-            <p class="text-sm text-secondary">From all practice tests</p>
+            <p class="text-sm text-secondary">From all practice tests — keeps your weak area analysis</p>
             <div id="skills-grid" class="skills-grid">
                 <div class="text-sm text-muted">Complete tests to build your skill profile.</div>
-            </div>
-        </section>
-
-        <section class="upload-section">
-            <div class="upload-header">
-                <h2>Start Practice Test</h2>
-                <p>Upload official practice test PDF and answer key for real grading.</p>
-            </div>
-            <div class="upload-grid">
-                <div class="drop-zone" id="questions-drop">
-                    <div class="icon"><i class="fas fa-file-pdf"></i></div>
-                    <h3>Questions PDF</h3>
-                    <p>Required</p>
-                    <div class="file-name hidden" id="questions-file-name"></div>
-                    <input type="file" id="questions-input" accept="application/pdf">
-                </div>
-                <div class="drop-zone" id="answers-drop">
-                    <div class="icon"><i class="fas fa-key"></i></div>
-                    <h3>Answer Key</h3>
-                    <p>Recommended</p>
-                    <div class="file-name hidden" id="answers-file-name"></div>
-                    <input type="file" id="answers-input" accept="application/pdf">
-                </div>
-            </div>
-            <div class="upload-actions">
-                <p class="text-sm text-secondary">Official timing: RW 32 min · Math 35 min per module</p>
-                <button class="btn btn-primary btn-lg" id="start-test-btn" disabled>
-                    <i class="fas fa-play"></i> Start Test
-                </button>
-            </div>
-            <div id="upload-status" class="upload-status hidden">
-                <div class="loader"></div>
-                <span id="upload-status-text">Building modules…</span>
             </div>
         </section>
 
@@ -161,7 +139,6 @@
         </section>
     </main>
 
-    <!-- ===================== TEST ENGINE ===================== -->
     <div id="test-view" class="view-container hidden">
         <header class="test-header">
             <div class="header-left">
@@ -207,7 +184,6 @@
         </footer>
     </div>
 
-    <!-- ===================== RESULTS ===================== -->
     <main id="results-view" class="view-container hidden">
         <header class="results-header">
             <h2>Results</h2>
@@ -215,9 +191,7 @@
                 <button class="btn btn-secondary" id="review-questions-btn">
                     <i class="fas fa-search"></i> Review
                 </button>
-                <button class="btn btn-primary" id="return-dashboard-btn">
-                    Done
-                </button>
+                <button class="btn btn-primary" id="return-dashboard-btn">Done</button>
             </div>
         </header>
 
@@ -268,12 +242,7 @@
         </section>
     </main>
 
-    <script>
-        if (window.pdfjsLib) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-        }
-    </script>
-    <script src="parser.js"></script>
+    <script src="tests-data.js"></script>
     <script src="engine.js"></script>
     <script src="analytics.js"></script>
     <script src="ui.js"></script>
