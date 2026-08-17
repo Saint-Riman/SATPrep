@@ -1,6 +1,8 @@
 /**
  * engine.js
- * Adaptive test engine — official timing, SPR, side-by-side Bluebook layout.
+ * Adaptive test engine — Bluebook side-by-side:
+ *   LEFT  = passage / stimulus only
+ *   RIGHT = demand (question prompt) + A–D options
  */
 
 class SATTestEngine {
@@ -67,6 +69,66 @@ class SATTestEngine {
         return this.flags[this.currentState.section][`module${this.currentState.module}`];
     }
 
+    /** Escape text for safe HTML insertion */
+    esc(s) {
+        return String(s || '')
+            .replace(/&/g, '&')
+            .replace(/</g, '<')
+            .replace(/>/g, '>')
+            .replace(/"/g, '"');
+    }
+
+    /**
+     * Pick the question apart into Bluebook panes:
+     *   passage (left)  — stimulus, poem, dual texts, table note
+     *   demand  (right) — "Which choice…" / task prompt only
+     */
+    splitPassageAndDemand(q) {
+        const DEFAULT_WIC = 'Which choice completes the text with the most logical and precise word or phrase?';
+        const DEMAND_START = /(?:\n\s*\n|\n)(?=Which choice\b|Based on the texts?\b|Based on the text\b|What (?:is|does|can)\b|According to (?:the |Text)\b|The text (?:most |best )?\b|Which of the following\b|As used in\b)/i;
+
+        // Explicit passage field from data (literary / dual-text questions)
+        if (q.passage && String(q.passage).trim()) {
+            return {
+                passage: String(q.passage).trim(),
+                demand: String(q.text || '').trim() || DEFAULT_WIC
+            };
+        }
+
+        const raw = String(q.text || '').trim();
+        if (!raw) return { passage: '', demand: DEFAULT_WIC };
+
+        // Split on demand-line boundary when stem + demand are bundled
+        const m = raw.match(DEMAND_START);
+        if (m && m.index != null && m.index > 15) {
+            const passage = raw.slice(0, m.index).trim();
+            const demand = raw.slice(m.index).trim();
+            if (passage.length > 10 && demand.length > 5) {
+                return { passage, demand };
+            }
+        }
+
+        // Words-in-Context with blank but no explicit demand line
+        if (raw.includes('_______')) {
+            const withoutDemand = raw.replace(/\n+Which choice[\s\S]*$/i, '').trim();
+            return {
+                passage: withoutDemand || raw,
+                demand: DEFAULT_WIC
+            };
+        }
+
+        // Pure demand-only item (rare) — keep left pane informative
+        if (/^Which choice\b/i.test(raw) || /^Based on the text/i.test(raw)) {
+            return {
+                passage: '',
+                demand: raw
+            };
+        }
+
+        // Fallback: treat whole text as stimulus, generic demand
+        return { passage: raw, demand: DEFAULT_WIC };
+    }
+
     loadModule() {
         this.currentState.currentIndex = 0;
         const isRW = this.currentState.section === 'RW';
@@ -82,7 +144,6 @@ class SATTestEngine {
             else calcBtn.classList.remove('hidden');
         }
 
-        // Always side-by-side
         const layout = document.getElementById('rw-layout');
         if (layout) {
             layout.style.flexDirection = 'row';
@@ -172,38 +233,33 @@ class SATTestEngine {
             }
         }
 
-        // SIDE-BY-SIDE: always keep both panes visible (Bluebook style)
-        const passageContainer = document.getElementById('passage-container');
         const layout = document.getElementById('rw-layout');
         if (layout) {
             layout.style.flexDirection = 'row';
             layout.classList.add('side-by-side');
         }
+
+        // ——— True Bluebook split ———
+        const { passage, demand } = this.splitPassageAndDemand(q);
+
+        const passageContainer = document.getElementById('passage-container');
         if (passageContainer) {
             passageContainer.style.display = 'block';
-            if (q.passage) {
-                // Preserve line breaks for poems / multi-paragraph text
-                const html = q.passage
-                    .replace(/&/g, '&')
-                    .replace(/</g, '<')
-                    .replace(/>/g, '>')
-                    .replace(/\n/g, '<br>');
+            if (passage) {
+                const html = this.esc(passage).replace(/\n/g, '<br>');
                 passageContainer.innerHTML = `<div class="passage-body">${html}</div>`;
             } else {
-                // Short stem questions still use left pane for context
                 passageContainer.innerHTML = `<div class="passage-empty">
-                    <p class="text-secondary text-sm">No separate passage for this question.</p>
-                    <p class="text-muted text-xs" style="margin-top:8px;">Read the question on the right and choose the best answer.</p>
+                    <p class="text-secondary text-sm">No stimulus text for this item.</p>
+                    <p class="text-muted text-xs" style="margin-top:8px;">Answer the demand on the right.</p>
                 </div>`;
             }
         }
 
-        const qText = (q.text || '')
-            .replace(/&/g, '&')
-            .replace(/</g, '<')
-            .replace(/>/g, '>')
-            .replace(/\n/g, '<br>');
-        document.getElementById('question-container').innerHTML = `<p>${qText}</p>`;
+        // Right pane: demand ONLY (never the full passage)
+        const demandHtml = this.esc(demand).replace(/\n/g, '<br>');
+        document.getElementById('question-container').innerHTML =
+            `<p class="demand-prompt">${demandHtml}</p>`;
 
         const optsContainer = document.getElementById('options-container');
         optsContainer.innerHTML = '';
@@ -218,7 +274,7 @@ class SATTestEngine {
                 if (responses[q.id] === index) li.classList.add('selected');
                 li.innerHTML = `
                     <div class="option-letter">${letters[index]}</div>
-                    <div class="option-content">${optText}</div>
+                    <div class="option-content">${this.esc(optText)}</div>
                 `;
                 li.onclick = () => {
                     responses[q.id] = index;
@@ -234,7 +290,7 @@ class SATTestEngine {
                     <div class="spr-label">Enter your answer</div>
                     <input type="text" class="spr-input" id="spr-input-${q.id}"
                         placeholder="e.g. 18 or 3/4"
-                        value="${responses[q.id] || ''}"
+                        value="${this.esc(responses[q.id] || '')}"
                         inputmode="decimal" autocomplete="off">
                     <div class="spr-hint">Fractions, decimals, and integers accepted. No units.</div>
                 </div>`;
@@ -300,7 +356,6 @@ class SATTestEngine {
             this.loadModule();
         } else {
             if (this.currentState.section === 'RW') {
-                // Math may still be empty — finish if no math questions
                 const mathQs = this.testData.sections.MATH?.module1 || [];
                 if (!mathQs.length) {
                     alert('Reading and Writing complete. Math content still being prepared — scoring RW only.');
