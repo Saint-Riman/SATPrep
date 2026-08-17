@@ -1,6 +1,6 @@
 /**
  * engine.js
- * Adaptive test engine with official timing, SPR support, and module timing analytics.
+ * Adaptive test engine — official timing, SPR, side-by-side Bluebook layout.
  */
 
 class SATTestEngine {
@@ -23,7 +23,6 @@ class SATTestEngine {
             RW: { module1: new Set(), module2: new Set() },
             MATH: { module1: new Set(), module2: new Set() }
         };
-        // Timing analytics (seconds spent per module)
         this.moduleTimings = {
             RW: { module1: null, module2: null },
             MATH: { module1: null, module2: null }
@@ -54,10 +53,10 @@ class SATTestEngine {
 
     getCurrentQuestions() {
         const sec = this.currentState.section;
-        if (this.currentState.module === 1) return this.testData.sections[sec].module1;
+        if (this.currentState.module === 1) return this.testData.sections[sec].module1 || [];
         return this.currentState.isHardModule
-            ? this.testData.sections[sec].module2Hard
-            : this.testData.sections[sec].module2Easy;
+            ? (this.testData.sections[sec].module2Hard || [])
+            : (this.testData.sections[sec].module2Easy || []);
     }
 
     getCurrentResponseMap() {
@@ -71,7 +70,6 @@ class SATTestEngine {
     loadModule() {
         this.currentState.currentIndex = 0;
         const isRW = this.currentState.section === 'RW';
-        // Official College Board DSAT timing
         this.currentState.timeRemaining = isRW ? 32 * 60 : 35 * 60;
         this.currentState.moduleStartedAt = Date.now();
 
@@ -79,8 +77,17 @@ class SATTestEngine {
             `${isRW ? 'Reading and Writing' : 'Math'}: Module ${this.currentState.module}`;
 
         const calcBtn = document.getElementById('calc-btn');
-        if (isRW) calcBtn.classList.add('hidden');
-        else calcBtn.classList.remove('hidden');
+        if (calcBtn) {
+            if (isRW) calcBtn.classList.add('hidden');
+            else calcBtn.classList.remove('hidden');
+        }
+
+        // Always side-by-side
+        const layout = document.getElementById('rw-layout');
+        if (layout) {
+            layout.style.flexDirection = 'row';
+            layout.classList.add('side-by-side');
+        }
 
         this.renderNodes();
         this.renderQuestion();
@@ -99,6 +106,7 @@ class SATTestEngine {
 
     updateTimerDisplay() {
         const timeSpan = document.getElementById('time-remaining');
+        if (!timeSpan) return;
         if (this.currentState.timeRemaining <= 0) {
             timeSpan.textContent = '0:00';
             return;
@@ -119,6 +127,7 @@ class SATTestEngine {
 
     renderNodes() {
         const container = document.getElementById('nav-nodes');
+        if (!container) return;
         container.innerHTML = '';
         const questions = this.getCurrentQuestions();
         const responses = this.getCurrentResponseMap();
@@ -142,7 +151,9 @@ class SATTestEngine {
 
     renderQuestion() {
         const questions = this.getCurrentQuestions();
+        if (!questions.length) return;
         const q = questions[this.currentState.currentIndex];
+        if (!q) return;
         const responses = this.getCurrentResponseMap();
         const flags = this.getCurrentFlagsSet();
 
@@ -151,25 +162,48 @@ class SATTestEngine {
 
         const flagIcon = document.getElementById('flag-icon');
         const flagBtn = document.getElementById('flag-btn');
-        if (flags.has(q.id)) {
-            flagIcon.className = 'fas fa-bookmark';
-            flagBtn.style.color = 'var(--warning)';
-        } else {
-            flagIcon.className = 'far fa-bookmark';
-            flagBtn.style.color = 'var(--text-muted)';
+        if (flagIcon && flagBtn) {
+            if (flags.has(q.id)) {
+                flagIcon.className = 'fas fa-bookmark';
+                flagBtn.style.color = 'var(--warning)';
+            } else {
+                flagIcon.className = 'far fa-bookmark';
+                flagBtn.style.color = 'var(--text-muted)';
+            }
         }
 
+        // SIDE-BY-SIDE: always keep both panes visible (Bluebook style)
         const passageContainer = document.getElementById('passage-container');
-        if (q.passage) {
+        const layout = document.getElementById('rw-layout');
+        if (layout) {
+            layout.style.flexDirection = 'row';
+            layout.classList.add('side-by-side');
+        }
+        if (passageContainer) {
             passageContainer.style.display = 'block';
-            passageContainer.innerHTML = `<p>${q.passage}</p>`;
-            document.getElementById('rw-layout').style.flexDirection = 'row';
-        } else {
-            passageContainer.style.display = 'none';
-            document.getElementById('rw-layout').style.flexDirection = 'column';
+            if (q.passage) {
+                // Preserve line breaks for poems / multi-paragraph text
+                const html = q.passage
+                    .replace(/&/g, '&')
+                    .replace(/</g, '<')
+                    .replace(/>/g, '>')
+                    .replace(/\n/g, '<br>');
+                passageContainer.innerHTML = `<div class="passage-body">${html}</div>`;
+            } else {
+                // Short stem questions still use left pane for context
+                passageContainer.innerHTML = `<div class="passage-empty">
+                    <p class="text-secondary text-sm">No separate passage for this question.</p>
+                    <p class="text-muted text-xs" style="margin-top:8px;">Read the question on the right and choose the best answer.</p>
+                </div>`;
+            }
         }
 
-        document.getElementById('question-container').innerHTML = `<p>${q.text}</p>`;
+        const qText = (q.text || '')
+            .replace(/&/g, '&')
+            .replace(/</g, '<')
+            .replace(/>/g, '>')
+            .replace(/\n/g, '<br>');
+        document.getElementById('question-container').innerHTML = `<p>${qText}</p>`;
 
         const optsContainer = document.getElementById('options-container');
         optsContainer.innerHTML = '';
@@ -178,7 +212,7 @@ class SATTestEngine {
         if (q.type === 'MCQ') {
             const list = document.createElement('ul');
             list.className = 'options-list';
-            q.options.forEach((optText, index) => {
+            (q.options || []).forEach((optText, index) => {
                 const li = document.createElement('li');
                 li.className = 'option-item';
                 if (responses[q.id] === index) li.classList.add('selected');
@@ -195,36 +229,36 @@ class SATTestEngine {
             });
             optsContainer.appendChild(list);
         } else if (q.type === 'SPR') {
-            // Student-Produced Response (manual entry) — mirrors real DSAT
             optsContainer.innerHTML = `
                 <div class="spr-input-container">
                     <div class="spr-label">Enter your answer</div>
                     <input type="text" class="spr-input" id="spr-input-${q.id}"
                         placeholder="e.g. 18 or 3/4"
                         value="${responses[q.id] || ''}"
-                        inputmode="decimal"
-                        autocomplete="off">
-                    <div class="spr-hint">Fractions, decimals, and integers are accepted. No units.</div>
-                </div>
-            `;
+                        inputmode="decimal" autocomplete="off">
+                    <div class="spr-hint">Fractions, decimals, and integers accepted. No units.</div>
+                </div>`;
             const inputField = document.getElementById(`spr-input-${q.id}`);
-            inputField.focus();
-            inputField.addEventListener('input', (e) => {
+            inputField?.focus();
+            inputField?.addEventListener('input', (e) => {
                 responses[q.id] = e.target.value.trim();
                 this.renderNodes();
             });
         }
 
         const nextBtn = document.getElementById('next-btn');
-        if (this.currentState.currentIndex === questions.length - 1) {
-            nextBtn.innerHTML = `End Module <i class="fas fa-flag-checkered"></i>`;
-        } else {
-            nextBtn.innerHTML = `Next <i class="fas fa-chevron-right"></i>`;
+        if (nextBtn) {
+            if (this.currentState.currentIndex === questions.length - 1) {
+                nextBtn.innerHTML = `End Module <i class="fas fa-flag-checkered"></i>`;
+            } else {
+                nextBtn.innerHTML = `Next <i class="fas fa-chevron-right"></i>`;
+            }
         }
     }
 
     toggleFlag() {
         const q = this.getCurrentQuestions()[this.currentState.currentIndex];
+        if (!q) return;
         const flags = this.getCurrentFlagsSet();
         if (flags.has(q.id)) flags.delete(q.id);
         else flags.add(q.id);
@@ -238,7 +272,8 @@ class SATTestEngine {
             this.currentState.currentIndex++;
             this.renderQuestion();
             this.renderNodes();
-            document.querySelector('.question-pane').scrollTop = 0;
+            document.querySelector('.question-pane')?.scrollTo?.(0, 0);
+            document.querySelector('.passage-pane')?.scrollTo?.(0, 0);
         } else {
             if (confirm('End this module? You cannot return to these questions.')) {
                 this.handleModuleEnd(false);
@@ -256,7 +291,7 @@ class SATTestEngine {
             const responses = this.getCurrentResponseMap();
             let correct = 0;
             questions.forEach(q => {
-                if (window.AnalyticsEngine.isCorrect(q, responses[q.id])) correct++;
+                if (window.AnalyticsEngine?.isCorrect?.(q, responses[q.id])) correct++;
             });
             const percentCorrect = questions.length ? correct / questions.length : 0;
             this.currentState.isHardModule = percentCorrect >= 0.60;
@@ -265,6 +300,13 @@ class SATTestEngine {
             this.loadModule();
         } else {
             if (this.currentState.section === 'RW') {
+                // Math may still be empty — finish if no math questions
+                const mathQs = this.testData.sections.MATH?.module1 || [];
+                if (!mathQs.length) {
+                    alert('Reading and Writing complete. Math content still being prepared — scoring RW only.');
+                    this.finishTest();
+                    return;
+                }
                 alert('Reading and Writing complete. Starting Math section.');
                 this.currentState.section = 'MATH';
                 this.currentState.module = 1;
@@ -294,34 +336,33 @@ class SATTestEngine {
 
     openDesmos() {
         const modal = document.getElementById('desmos-modal');
-        modal.classList.remove('hidden');
+        modal?.classList.remove('hidden');
         if (!this.desmosCalc) {
             const elt = document.getElementById('desmos-calculator');
-            this.desmosCalc = Desmos.GraphingCalculator(elt, {
-                keypad: true,
-                expressions: true,
-                settingsMenu: true,
-                zoomButtons: true,
-                expressionsTopbar: true
-            });
+            if (elt && typeof Desmos !== 'undefined') {
+                this.desmosCalc = Desmos.GraphingCalculator(elt, {
+                    keypad: true, expressions: true, settingsMenu: true,
+                    zoomButtons: true, expressionsTopbar: true
+                });
+            }
         }
     }
 
     closeDesmos() {
-        document.getElementById('desmos-modal').classList.add('hidden');
+        document.getElementById('desmos-modal')?.classList.add('hidden');
     }
 
     bindEvents() {
-        document.getElementById('next-btn').addEventListener('click', () => this.nextQuestion());
-        document.getElementById('flag-btn').addEventListener('click', () => this.toggleFlag());
-        document.getElementById('end-test-early-btn').addEventListener('click', () => {
+        document.getElementById('next-btn')?.addEventListener('click', () => this.nextQuestion());
+        document.getElementById('flag-btn')?.addEventListener('click', () => this.toggleFlag());
+        document.getElementById('end-test-early-btn')?.addEventListener('click', () => {
             if (confirm('Exit the test early? Your current progress will be scored.')) {
                 this.finishTest();
             }
         });
-        document.getElementById('desmos-btn').addEventListener('click', () => this.openDesmos());
-        document.getElementById('calc-btn').addEventListener('click', () => this.openDesmos());
-        document.getElementById('close-desmos-btn').addEventListener('click', () => this.closeDesmos());
+        document.getElementById('desmos-btn')?.addEventListener('click', () => this.openDesmos());
+        document.getElementById('calc-btn')?.addEventListener('click', () => this.openDesmos());
+        document.getElementById('close-desmos-btn')?.addEventListener('click', () => this.closeDesmos());
     }
 }
 
