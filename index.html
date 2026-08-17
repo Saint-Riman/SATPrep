@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://www.desmos.com/api/v1.10/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
     <link rel="stylesheet" href="satprep.css">
+    <link rel="stylesheet" href="app-shell.css">
 </head>
 <body>
 
@@ -23,9 +24,7 @@
             </div>
             <p class="landing-desc">Official practice tests with real timing, adaptive modules, and detailed weak-area analysis — built to feel like the real exam.</p>
             <div class="landing-actions">
-                <button class="btn btn-primary btn-lg" id="landing-start-btn">
-                    Get Started
-                </button>
+                <button class="btn btn-primary btn-lg" id="landing-start-btn">Get Started</button>
                 <p class="text-sm text-secondary" style="margin-top:12px;">Free · Works offline after first load</p>
             </div>
             <div class="landing-features">
@@ -73,28 +72,16 @@
                     <p class="text-xs text-secondary" id="drawer-username">Guest</p>
                 </div>
             </div>
-            <button class="btn btn-ghost btn-sm" id="close-drawer-btn" style="min-width:44px;min-height:44px;">
-                <i class="fas fa-times"></i>
-            </button>
+            <button class="btn btn-ghost btn-sm" id="close-drawer-btn" style="min-width:44px;min-height:44px;"><i class="fas fa-times"></i></button>
         </div>
         <nav class="nav-drawer-links">
-            <button class="nav-link" data-nav="practice">
-                <i class="fas fa-book-open"></i> Practice Tests
-            </button>
-            <button class="nav-link" data-nav="tips">
-                <i class="fas fa-lightbulb"></i> Tips & Tricks
-            </button>
-            <button class="nav-link" data-nav="profile">
-                <i class="fas fa-user"></i> My Profile
-            </button>
-            <button class="nav-link" data-nav="skills">
-                <i class="fas fa-chart-pie"></i> Skill Breakdown
-            </button>
+            <button class="nav-link" data-nav="practice"><i class="fas fa-book-open"></i> Practice Tests</button>
+            <button class="nav-link" data-nav="tips"><i class="fas fa-lightbulb"></i> Tips & Tricks</button>
+            <button class="nav-link" data-nav="profile"><i class="fas fa-user"></i> My Profile</button>
+            <button class="nav-link" data-nav="skills"><i class="fas fa-chart-pie"></i> Skill Breakdown</button>
         </nav>
         <div class="nav-drawer-footer">
-            <button class="btn btn-secondary btn-sm" id="drawer-logout-btn" style="width:100%;">
-                <i class="fas fa-sign-out-alt"></i> Log Out
-            </button>
+            <button class="btn btn-secondary btn-sm" id="drawer-logout-btn" style="width:100%;"><i class="fas fa-sign-out-alt"></i> Log Out</button>
         </div>
     </aside>
 
@@ -112,16 +99,13 @@
     <!-- ========== DASHBOARD / APP SHELL ========== -->
     <main id="dashboard-view" class="view-container hidden">
         <header class="app-header">
-            <button class="btn btn-ghost btn-sm hamburger-btn" id="hamburger-btn" style="min-width:44px;min-height:44px;">
-                <i class="fas fa-bars"></i>
-            </button>
+            <button class="btn btn-ghost btn-sm hamburger-btn" id="hamburger-btn" style="min-width:44px;min-height:44px;"><i class="fas fa-bars"></i></button>
             <div class="brand" style="flex:1; justify-content:center;">
                 <h1 style="font-size:17px; font-weight:600;">DSAT Prep</h1>
             </div>
             <div class="user-avatar" id="user-avatar" style="width:32px;height:32px;font-size:13px;">?</div>
         </header>
 
-        <!-- PRACTICE SECTION (default) -->
         <section id="section-practice" class="app-section">
             <div class="section-pad">
                 <h2 class="title-2" style="margin-bottom:4px;">Practice Tests</h2>
@@ -131,7 +115,6 @@
             </div>
         </section>
 
-        <!-- TIPS SECTION -->
         <section id="section-tips" class="app-section hidden">
             <div class="section-pad">
                 <h2 class="title-2" style="margin-bottom:4px;">Tips & Tricks</h2>
@@ -140,7 +123,6 @@
             </div>
         </section>
 
-        <!-- PROFILE SECTION -->
         <section id="section-profile" class="app-section hidden">
             <div class="section-pad">
                 <h2 class="title-2" style="margin-bottom:4px;">My Profile</h2>
@@ -221,7 +203,6 @@
             </div>
         </section>
 
-        <!-- SKILLS SECTION -->
         <section id="section-skills" class="app-section hidden">
             <div class="section-pad">
                 <h2 class="title-2" style="margin-bottom:4px;">Skill Breakdown</h2>
@@ -268,7 +249,6 @@
         </header>
 
         <section class="test-body">
-            <!-- Always side-by-side: passage LEFT, question+options RIGHT -->
             <div class="split-screen side-by-side" id="rw-layout">
                 <article class="passage-pane" id="passage-container">
                     <p class="text-secondary text-sm">Passage appears here</p>
@@ -299,9 +279,7 @@
         <header class="results-header">
             <h2>Results</h2>
             <div class="flex-gap">
-                <button class="btn btn-secondary" id="review-questions-btn">
-                    <i class="fas fa-search"></i> Review
-                </button>
+                <button class="btn btn-secondary" id="review-questions-btn"><i class="fas fa-search"></i> Review</button>
                 <button class="btn btn-primary" id="return-dashboard-btn">Done</button>
             </div>
         </header>
@@ -311,14 +289,8 @@
             <div class="total-score" id="final-total-score">—</div>
             <div class="percentile" id="final-percentile">—</div>
             <div class="section-scores">
-                <div>
-                    <h3>Reading & Writing</h3>
-                    <div class="section-score-val" id="final-rw-score">—</div>
-                </div>
-                <div>
-                    <h3>Math</h3>
-                    <div class="section-score-val" id="final-math-score">—</div>
-                </div>
+                <div><h3>Reading & Writing</h3><div class="section-score-val" id="final-rw-score">—</div></div>
+                <div><h3>Math</h3><div class="section-score-val" id="final-math-score">—</div></div>
             </div>
         </section>
 
@@ -328,10 +300,7 @@
         </section>
 
         <section class="ai-panel">
-            <div class="ai-panel-header">
-                <i class="fas fa-chart-pie"></i>
-                <h3>Weakness Diagnostic</h3>
-            </div>
+            <div class="ai-panel-header"><i class="fas fa-chart-pie"></i><h3>Weakness Diagnostic</h3></div>
             <div id="weakness-tags" class="weakness-tags"></div>
             <div class="expert-tip" id="expert-tip-container"></div>
         </section>
@@ -344,9 +313,7 @@
                     <h3 class="section-title" style="margin-bottom:2px;">Question Review</h3>
                     <p class="text-sm text-secondary">Your answer vs correct</p>
                 </div>
-                <button class="btn btn-secondary btn-sm" id="generate-ai-explanations-btn">
-                    <i class="fas fa-magic"></i> AI Explanations
-                </button>
+                <button class="btn btn-secondary btn-sm" id="generate-ai-explanations-btn"><i class="fas fa-magic"></i> AI Explanations</button>
             </div>
             <div id="review-list" class="review-list"></div>
             <p class="text-sm text-muted mt-3" id="review-ai-status"></p>
