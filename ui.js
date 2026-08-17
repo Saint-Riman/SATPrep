@@ -1,6 +1,7 @@
 /**
  * ui.js
- * Auth, dashboard, Desmos, review mode, OpenAI key handling (localStorage only).
+ * Bluebook-style dashboard: practice test selector, tips, analytics, Desmos.
+ * PDF upload removed — content is pre-loaded from tests-data.js
  */
 
 const STORAGE_KEY = 'dsat_prep_hub_v1';
@@ -48,7 +49,6 @@ class Storage {
         if (user.history.length > 30) user.history = user.history.slice(0, 30);
         this.upsertUser(username, { history: user.history });
     }
-
     static getOpenAIKey() {
         return localStorage.getItem(OPENAI_KEY_STORAGE) || '';
     }
@@ -66,8 +66,6 @@ class UIController {
             results: document.getElementById('results-view')
         };
         this.authMode = 'login';
-        this.questionsFile = null;
-        this.answersFile = null;
         this.bindAuth();
         this.bindDashboard();
         this.bindTestControls();
@@ -79,14 +77,14 @@ class UIController {
     bindOpenAISettings() {
         const input = document.getElementById('openai-key-input');
         const status = document.getElementById('openai-key-status');
+        if (!input || !status) return;
         const saved = Storage.getOpenAIKey();
         if (saved) {
             input.value = saved;
             status.textContent = 'Key saved in this browser. GPT-4o-mini explanations available in Review.';
             status.style.color = 'var(--success)';
         }
-
-        document.getElementById('save-openai-key-btn').addEventListener('click', () => {
+        document.getElementById('save-openai-key-btn')?.addEventListener('click', () => {
             const key = input.value.trim();
             if (!key.startsWith('sk-')) {
                 status.textContent = 'Key should start with sk- or sk-proj-';
@@ -97,8 +95,7 @@ class UIController {
             status.textContent = 'Key saved. It never leaves this browser except when calling OpenAI.';
             status.style.color = 'var(--success)';
         });
-
-        document.getElementById('clear-openai-key-btn').addEventListener('click', () => {
+        document.getElementById('clear-openai-key-btn')?.addEventListener('click', () => {
             Storage.setOpenAIKey('');
             input.value = '';
             status.textContent = 'No key saved — using local explanations.';
@@ -113,14 +110,14 @@ class UIController {
         const submitBtn = document.getElementById('auth-submit-btn');
         const errorEl = document.getElementById('auth-error');
 
-        tabLogin.addEventListener('click', () => {
+        tabLogin?.addEventListener('click', () => {
             this.authMode = 'login';
             tabLogin.classList.add('active');
             tabSignup.classList.remove('active');
             submitBtn.textContent = 'Log In';
             errorEl.classList.remove('show');
         });
-        tabSignup.addEventListener('click', () => {
+        tabSignup?.addEventListener('click', () => {
             this.authMode = 'signup';
             tabSignup.classList.add('active');
             tabLogin.classList.remove('active');
@@ -128,7 +125,7 @@ class UIController {
             errorEl.classList.remove('show');
         });
 
-        form.addEventListener('submit', (e) => {
+        form?.addEventListener('submit', (e) => {
             e.preventDefault();
             const username = document.getElementById('auth-username').value.trim().toLowerCase();
             const password = document.getElementById('auth-password').value;
@@ -151,7 +148,7 @@ class UIController {
             }
         });
 
-        document.getElementById('logout-btn').addEventListener('click', () => {
+        document.getElementById('logout-btn')?.addEventListener('click', () => {
             Storage.clearSession();
             this.showAuth();
             this.views.dashboard.classList.add('hidden');
@@ -191,169 +188,141 @@ class UIController {
             });
             this.updatePointsToGo();
         };
-        currentInput.addEventListener('change', saveScores);
-        targetInput.addEventListener('change', saveScores);
-        currentInput.addEventListener('blur', saveScores);
-        targetInput.addEventListener('blur', saveScores);
+        currentInput?.addEventListener('change', saveScores);
+        targetInput?.addEventListener('change', saveScores);
+        currentInput?.addEventListener('blur', saveScores);
+        targetInput?.addEventListener('blur', saveScores);
 
-        const setupDrop = (zone, input, type) => {
-            ['dragenter', 'dragover'].forEach(evt => zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.add('dragover'); }));
-            ['dragleave', 'drop'].forEach(evt => zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.remove('dragover'); }));
-            zone.addEventListener('drop', e => {
-                const file = e.dataTransfer.files[0];
-                if (file && file.type === 'application/pdf') this.setFile(type, file);
-            });
-            input.addEventListener('change', e => { if (e.target.files[0]) this.setFile(type, e.target.files[0]); });
-        };
-        setupDrop(document.getElementById('questions-drop'), document.getElementById('questions-input'), 'questions');
-        setupDrop(document.getElementById('answers-drop'), document.getElementById('answers-input'), 'answers');
-
-        document.getElementById('start-test-btn').addEventListener('click', () => this.startTest());
-        document.getElementById('return-dashboard-btn').addEventListener('click', () => {
+        document.getElementById('return-dashboard-btn')?.addEventListener('click', () => {
             this.showDashboard();
             this.refreshDashboard();
         });
     }
 
     bindResults() {
-        const reviewBtn = document.getElementById('review-questions-btn');
-        if (reviewBtn) {
-            reviewBtn.addEventListener('click', () => {
-                const section = document.getElementById('review-section');
-                section.classList.toggle('hidden');
-                if (!section.classList.contains('hidden')) {
-                    section.scrollIntoView({ behavior: 'smooth' });
-                }
-            });
-        }
-
-        const aiBtn = document.getElementById('generate-ai-explanations-btn');
-        if (aiBtn) {
-            aiBtn.addEventListener('click', () => this.generateAIExplanations());
-        }
+        document.getElementById('review-questions-btn')?.addEventListener('click', () => {
+            const section = document.getElementById('review-section');
+            section.classList.toggle('hidden');
+            if (!section.classList.contains('hidden')) {
+                section.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+        document.getElementById('generate-ai-explanations-btn')?.addEventListener('click', () => this.generateAIExplanations());
     }
 
     async generateAIExplanations() {
         const key = Storage.getOpenAIKey();
         const status = document.getElementById('review-ai-status');
         const items = window._lastReviewItems || [];
-
-        if (!key) {
-            status.textContent = 'No OpenAI key saved. Add one on the dashboard first.';
-            return;
-        }
-        if (!items.length) {
-            status.textContent = 'No review items available.';
-            return;
-        }
-
-        // Only enhance incorrect ones to save tokens / time
+        if (!key) { status.textContent = 'No OpenAI key saved. Add one on the dashboard first.'; return; }
+        if (!items.length) { status.textContent = 'No review items available.'; return; }
         const toExplain = items.filter(i => !i.isCorrect).slice(0, 12);
-        if (!toExplain.length) {
-            status.textContent = 'No incorrect answers to explain.';
-            return;
-        }
-
-        status.textContent = `Generating explanations for ${toExplain.length} missed questions with GPT-4o-mini…`;
+        if (!toExplain.length) { status.textContent = 'No incorrect answers to explain.'; return; }
+        status.textContent = `Generating explanations for ${toExplain.length} missed questions…`;
         const btn = document.getElementById('generate-ai-explanations-btn');
         btn.disabled = true;
-
         try {
             for (const item of toExplain) {
-                const prompt = `You are a patient DSAT tutor. Explain clearly and briefly (3-5 sentences) why the correct answer is right and why the student's answer is wrong for this skill: ${item.tag}.\n\nQuestion skill: ${item.tag}\nStudent answered: ${item.yourAnswer}\nCorrect answer: ${item.correctAnswer}\n\nGive an easy-to-understand explanation a high-school student can follow. Do not use markdown headers.`;
-
+                const prompt = `You are a patient DSAT tutor. Explain clearly and briefly (3-5 sentences) why the correct answer is right and why the student's answer is wrong for this skill: ${item.tag}.\n\nStudent answered: ${item.yourAnswer}\nCorrect answer: ${item.correctAnswer}\n\nKeep it practical for a high-school student.`;
                 const res = await fetch('https://api.openai.com/v1/chat/completions', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${key}`
-                    },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
                     body: JSON.stringify({
                         model: 'gpt-4o-mini',
                         messages: [
-                            { role: 'system', content: 'You are a clear, encouraging Digital SAT tutor. Keep explanations short and practical.' },
+                            { role: 'system', content: 'You are a clear, encouraging Digital SAT tutor.' },
                             { role: 'user', content: prompt }
                         ],
                         max_tokens: 220,
                         temperature: 0.4
                     })
                 });
-
-                if (!res.ok) {
-                    const errText = await res.text();
-                    throw new Error(`OpenAI error ${res.status}: ${errText.slice(0, 200)}`);
-                }
-
+                if (!res.ok) throw new Error(`OpenAI error ${res.status}`);
                 const data = await res.json();
                 const text = data.choices?.[0]?.message?.content?.trim();
-                if (text) {
-                    item.explanation = text;
-                    item.aiGenerated = true;
-                }
+                if (text) { item.explanation = text; item.aiGenerated = true; }
             }
-
-            // Re-render review list with updated explanations
             window.AnalyticsEngine.renderReviewList(items);
             status.textContent = `AI explanations added for ${toExplain.length} missed question(s).`;
         } catch (err) {
             console.error(err);
-            status.textContent = `Could not generate AI explanations: ${err.message}. Check your key and billing.`;
+            status.textContent = `Could not generate AI explanations: ${err.message}`;
         } finally {
             btn.disabled = false;
         }
     }
 
-    setFile(type, file) {
-        if (type === 'questions') {
-            this.questionsFile = file;
-            const nameEl = document.getElementById('questions-file-name');
-            nameEl.textContent = file.name;
-            nameEl.classList.remove('hidden');
-            document.getElementById('questions-drop').classList.add('has-file');
-        } else {
-            this.answersFile = file;
-            const nameEl = document.getElementById('answers-file-name');
-            nameEl.textContent = file.name;
-            nameEl.classList.remove('hidden');
-            document.getElementById('answers-drop').classList.add('has-file');
-        }
-        document.getElementById('start-test-btn').disabled = !this.questionsFile;
+    /** Render official practice test cards */
+    renderTestCards() {
+        const container = document.getElementById('test-cards');
+        if (!container || !window.OFFICIAL_TESTS) return;
+
+        const tests = Object.values(window.OFFICIAL_TESTS);
+        container.innerHTML = tests.map(t => {
+            const available = t.available === true;
+            const qCount = available && t.sections?.RW?.module1
+                ? t.sections.RW.module1.length
+                : 0;
+            return `
+                <div class="test-card ${available ? '' : 'disabled'}" data-test-id="${t.testId}">
+                    <div class="test-card-top">
+                        <div class="test-card-icon"><i class="fas fa-book-open"></i></div>
+                        <div>
+                            <h3>${t.title}</h3>
+                            <p class="text-sm text-secondary">${available ? `${qCount} questions ready · RW Module 1` : 'Content being prepared'}</p>
+                        </div>
+                    </div>
+                    <button class="btn ${available ? 'btn-primary' : 'btn-secondary'} btn-sm start-official-btn"
+                            data-test-id="${t.testId}" ${available ? '' : 'disabled'}>
+                        ${available ? '<i class="fas fa-play"></i> Start' : 'Coming soon'}
+                    </button>
+                </div>`;
+        }).join('');
+
+        container.querySelectorAll('.start-official-btn:not([disabled])').forEach(btn => {
+            btn.addEventListener('click', () => this.startOfficialTest(btn.dataset.testId));
+        });
     }
 
-    async startTest() {
-        if (!this.questionsFile) return;
-        const status = document.getElementById('upload-status');
-        const statusText = document.getElementById('upload-status-text');
-        status.classList.remove('hidden');
-        statusText.textContent = this.answersFile
-            ? 'Extracting questions, options & answer key…'
-            : 'Extracting questions and options from PDF…';
+    /** Render tips & tricks */
+    renderTips() {
+        const container = document.getElementById('tips-list');
+        if (!container || !window.SAT_TIPS) return;
+        container.innerHTML = window.SAT_TIPS.map(t => `
+            <div class="tip-card">
+                <h4>${t.title}</h4>
+                <p>${t.tip}</p>
+            </div>`).join('');
+    }
 
-        try {
-            const parsed = await window.PDFProcessor.parseFiles(this.questionsFile, this.answersFile);
-            status.classList.add('hidden');
+    /** Start a pre-loaded official practice test */
+    startOfficialTest(testId) {
+        const test = window.OFFICIAL_TESTS?.[testId];
+        if (!test || !test.available) {
+            alert('This practice test is not yet available. Content is being structured.');
+            return;
+        }
 
-            // Brief feedback so the user knows what was extracted
-            if (parsed.extractionNote) {
-                console.log('[SATPrep]', parsed.extractionNote);
-                // Optional: show a short toast-like message
-                if (parsed.usedRealQuestions) {
-                    // silent success – real content is being used
-                } else {
-                    // fallback happened – still usable but worth noting in console
-                }
-            }
+        // Ensure module2 has at least some questions so the adaptive path doesn't break
+        const data = JSON.parse(JSON.stringify(test)); // deep clone
+        if (!data.sections.RW.module2Easy?.length) {
+            data.sections.RW.module2Easy = data.sections.RW.module1.slice(0, 6);
+        }
+        if (!data.sections.RW.module2Hard?.length) {
+            data.sections.RW.module2Hard = data.sections.RW.module1.slice(6);
+        }
+        // Temporary empty math so engine doesn't crash — will be filled later
+        if (!data.sections.MATH.module1?.length) {
+            data.sections.MATH.module1 = [];
+            data.sections.MATH.module2Easy = [];
+            data.sections.MATH.module2Hard = [];
+        }
 
-            if (window.TestEngineInstance) {
-                window.TestEngineInstance.startTest(parsed);
-                this.showTestView();
-            } else {
-                alert('Test engine failed to load.');
-            }
-        } catch (err) {
-            console.error(err);
-            status.classList.add('hidden');
-            alert('Error processing PDFs. Check the browser console for details.');
+        if (window.TestEngineInstance) {
+            window.TestEngineInstance.startTest(data);
+            this.showTestView();
+        } else {
+            alert('Test engine failed to load.');
         }
     }
 
@@ -368,6 +337,10 @@ class UIController {
         document.getElementById('current-score-input').value = user.currentScore || 1200;
         document.getElementById('target-score-input').value = user.targetScore || 1500;
         this.updatePointsToGo();
+
+        // Always re-render test cards + tips
+        this.renderTestCards();
+        this.renderTips();
 
         const history = user.history || [];
         if (history.length === 0) {
@@ -395,7 +368,7 @@ class UIController {
                 document.getElementById('top-weakness-sub').textContent = 'Strong overall';
             }
 
-            const skills = window.AnalyticsEngine.buildSkillProfile(history);
+            const skills = window.AnalyticsEngine?.buildSkillProfile?.(history) || [];
             const grid = document.getElementById('skills-grid');
             if (skills.length === 0) {
                 grid.innerHTML = '<div class="text-sm text-muted">Skill data will appear after tests with detailed tracking.</div>';
@@ -417,12 +390,9 @@ class UIController {
             const list = document.getElementById('history-list');
             list.innerHTML = history.slice(0, 8).map(h => {
                 const date = new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-                const badge = h.usedRealAnswers
-                    ? '<span style="font-size:0.7rem;background:#CCFBF1;color:#0D9488;padding:2px 6px;border-radius:4px;margin-left:6px;">Real key</span>'
-                    : '';
                 return `<div class="history-item">
                     <div>
-                        <div class="font-medium">${date}${badge}</div>
+                        <div class="font-medium">${date}</div>
                         <div class="text-xs text-muted">RW ${h.rw} · Math ${h.math}</div>
                     </div>
                     <div class="score">${h.total}</div>
@@ -460,7 +430,7 @@ class UIController {
     showResultsView() {
         this.hideAllViews();
         this.views.results.classList.remove('hidden');
-        document.getElementById('review-section').classList.add('hidden');
+        document.getElementById('review-section')?.classList.add('hidden');
         try {
             if (document.exitFullscreen && document.fullscreenElement) {
                 document.exitFullscreen().catch(() => {});
