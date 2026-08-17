@@ -2,22 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DSAT Prep Hub | Adaptive Practice Engine</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#F2F2F7">
+    <title>DSAT Prep Hub</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://www.desmos.com/api/v1.10/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
     <link rel="stylesheet" href="satprep.css">
 </head>
 <body>
 
-    <!-- AUTH MODAL -->
+    <!-- AUTH SHEET -->
     <div id="auth-modal" class="modal-overlay">
         <div class="modal">
             <div class="modal-header">
                 <h2>DSAT Prep Hub</h2>
-                <p>Sign in to save your scores and progress</p>
+                <p>Sign in to save scores and track progress</p>
             </div>
             <div class="auth-tabs">
                 <button class="auth-tab active" data-tab="login" id="tab-login">Log In</button>
@@ -33,17 +35,17 @@
                     <label class="label" for="auth-password">Password</label>
                     <input class="input" type="password" id="auth-password" placeholder="Enter password" required autocomplete="current-password">
                 </div>
-                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:0.5rem;" id="auth-submit-btn">Log In</button>
+                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:8px;" id="auth-submit-btn">Log In</button>
             </form>
         </div>
     </div>
 
-    <!-- DESMOS MODAL -->
+    <!-- DESMOS SHEET -->
     <div id="desmos-modal" class="modal-overlay hidden">
         <div class="modal desmos-modal">
             <div class="desmos-header">
-                <h3><i class="fas fa-chart-line"></i> Desmos Graphing Calculator</h3>
-                <button class="btn btn-ghost btn-sm" id="close-desmos-btn"><i class="fas fa-times"></i> Close</button>
+                <h3><i class="fas fa-chart-line"></i> Desmos</h3>
+                <button class="btn btn-ghost btn-sm" id="close-desmos-btn">Done</button>
             </div>
             <div id="desmos-calculator" style="width:100%; height:520px;"></div>
         </div>
@@ -55,8 +57,8 @@
             <div class="brand">
                 <div class="brand-icon"><i class="fas fa-graduation-cap"></i></div>
                 <div>
-                    <h1>DSAT Prep Hub</h1>
-                    <p>Adaptive practice · Bluebook experience</p>
+                    <h1>DSAT Prep</h1>
+                    <p>Adaptive practice</p>
                 </div>
             </div>
             <div class="flex-gap">
@@ -64,7 +66,7 @@
                     <div class="user-avatar" id="user-avatar">?</div>
                     <span id="user-display-name">Guest</span>
                 </div>
-                <button class="btn btn-ghost btn-sm" id="logout-btn" title="Log out">
+                <button class="btn btn-ghost btn-sm" id="logout-btn" title="Log out" style="min-width:44px;min-height:44px;">
                     <i class="fas fa-sign-out-alt"></i>
                 </button>
             </div>
@@ -72,49 +74,47 @@
 
         <section class="stats-grid">
             <div class="stat-card">
-                <div class="stat-label">Current Score</div>
+                <div class="stat-label">Current</div>
                 <div class="score-input-wrap">
                     <input type="number" class="score-input primary" id="current-score-input" min="400" max="1600" step="10" value="1200">
-                    <span class="text-muted text-sm">/ 1600</span>
+                    <span class="text-muted text-sm">/1600</span>
                 </div>
-                <div class="stat-sub">Your latest self-reported score</div>
+                <div class="stat-sub">Self-reported</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Target Score</div>
+                <div class="stat-label">Target</div>
                 <div class="score-input-wrap">
                     <input type="number" class="score-input" id="target-score-input" min="400" max="1600" step="10" value="1500">
-                    <span class="text-muted text-sm">/ 1600</span>
+                    <span class="text-muted text-sm">/1600</span>
                 </div>
-                <div class="stat-sub" id="points-to-go">— points to go</div>
+                <div class="stat-sub" id="points-to-go">— to go</div>
             </div>
-            <div class="stat-card accent-success">
-                <div class="stat-label">Average Score</div>
+            <div class="stat-card">
+                <div class="stat-label">Average</div>
                 <div class="stat-value success" id="avg-score-display">—</div>
                 <div class="stat-sub" id="avg-score-sub">No tests yet</div>
             </div>
-            <div class="stat-card accent-warning">
+            <div class="stat-card">
                 <div class="stat-label">Top Weakness</div>
-                <div class="stat-value" style="font-size:1.25rem;" id="top-weakness-display">—</div>
-                <div class="stat-sub" id="top-weakness-sub">Complete a test to see data</div>
+                <div class="stat-value" style="font-size:18px;" id="top-weakness-display">—</div>
+                <div class="stat-sub" id="top-weakness-sub">After first test</div>
             </div>
         </section>
 
-        <!-- Settings: OpenAI key (stored only in localStorage) -->
         <section class="settings-section">
-            <h3 class="section-title">AI Explanations (optional)</h3>
-            <p class="text-sm text-secondary mb-3">Paste your OpenAI API key to get GPT-4o-mini explanations in Review mode. The key stays only in this browser.</p>
+            <h3 class="section-title">AI Explanations</h3>
+            <p class="text-sm text-secondary">Optional OpenAI key for GPT-4o-mini explanations. Stored only in this browser.</p>
             <div class="settings-row">
-                <input type="password" class="input" id="openai-key-input" placeholder="sk-proj-... or sk-..." style="flex:1; max-width:420px;">
-                <button class="btn btn-secondary btn-sm" id="save-openai-key-btn">Save Key</button>
+                <input type="password" class="input" id="openai-key-input" placeholder="sk-proj-… or sk-…" style="flex:1; min-width:0;">
+                <button class="btn btn-secondary btn-sm" id="save-openai-key-btn">Save</button>
                 <button class="btn btn-ghost btn-sm" id="clear-openai-key-btn">Clear</button>
             </div>
-            <p class="text-xs text-muted mt-2" id="openai-key-status">No key saved — using local explanations.</p>
+            <p class="text-xs text-muted mt-2" id="openai-key-status">No key saved</p>
         </section>
 
-        <!-- Deeper Skill Tracking -->
         <section class="skills-section" id="skills-section">
             <h3 class="section-title">Skill Breakdown</h3>
-            <p class="text-sm text-secondary mb-3">Aggregated from all your practice tests · Domain → specific skills</p>
+            <p class="text-sm text-secondary">From all practice tests</p>
             <div id="skills-grid" class="skills-grid">
                 <div class="text-sm text-muted">Complete tests to build your skill profile.</div>
             </div>
@@ -122,41 +122,41 @@
 
         <section class="upload-section">
             <div class="upload-header">
-                <h2>Start a Practice Test</h2>
-                <p>Upload the official practice test PDF and (recommended) the answer key for accurate grading.</p>
+                <h2>Start Practice Test</h2>
+                <p>Upload official practice test PDF and answer key for real grading.</p>
             </div>
             <div class="upload-grid">
                 <div class="drop-zone" id="questions-drop">
                     <div class="icon"><i class="fas fa-file-pdf"></i></div>
                     <h3>Questions PDF</h3>
-                    <p>Required · Official practice test</p>
+                    <p>Required</p>
                     <div class="file-name hidden" id="questions-file-name"></div>
                     <input type="file" id="questions-input" accept="application/pdf">
                 </div>
                 <div class="drop-zone" id="answers-drop">
                     <div class="icon"><i class="fas fa-key"></i></div>
-                    <h3>Answer Key PDF</h3>
-                    <p>Recommended · For real grading</p>
+                    <h3>Answer Key</h3>
+                    <p>Recommended</p>
                     <div class="file-name hidden" id="answers-file-name"></div>
                     <input type="file" id="answers-input" accept="application/pdf">
                 </div>
             </div>
             <div class="upload-actions">
-                <p class="text-sm text-secondary">Timing matches official DSAT: RW 32 min / Math 35 min per module.</p>
+                <p class="text-sm text-secondary">Official timing: RW 32 min · Math 35 min per module</p>
                 <button class="btn btn-primary btn-lg" id="start-test-btn" disabled>
-                    <i class="fas fa-play"></i> Start Adaptive Test
+                    <i class="fas fa-play"></i> Start Test
                 </button>
             </div>
             <div id="upload-status" class="upload-status hidden">
                 <div class="loader"></div>
-                <span id="upload-status-text">Building adaptive modules…</span>
+                <span id="upload-status-text">Building modules…</span>
             </div>
         </section>
 
         <section class="history-section">
-            <h3 class="section-title">Recent Practice Tests</h3>
+            <h3 class="section-title">Recent Tests</h3>
             <div class="history-list" id="history-list">
-                <div class="text-sm text-muted">No practice tests yet.</div>
+                <div class="text-sm text-muted" style="padding:16px;">No practice tests yet.</div>
             </div>
         </section>
     </main>
@@ -165,21 +165,21 @@
     <div id="test-view" class="view-container hidden">
         <header class="test-header">
             <div class="header-left">
-                <h3 id="section-title" style="font-size:1rem; font-weight:600;">Reading and Writing: Module 1</h3>
+                <h3 id="section-title" style="font-size:15px; font-weight:600;">Reading and Writing: Module 1</h3>
             </div>
             <div class="header-center">
                 <div class="timer-display">
-                    <i class="fas fa-clock"></i>
+                    <i class="fas fa-clock" style="font-size:14px; opacity:0.7;"></i>
                     <span id="time-remaining">32:00</span>
-                    <button id="hide-time-btn" class="btn btn-ghost btn-sm" style="margin-left:0.35rem;">Hide</button>
+                    <button id="hide-time-btn" class="btn btn-ghost btn-sm" style="margin-left:4px; padding:4px 8px; min-height:28px; font-size:13px;">Hide</button>
                 </div>
             </div>
-            <div class="header-right" style="display:flex; justify-content:flex-end; gap:0.35rem; align-items:center;">
+            <div class="header-right" style="display:flex; justify-content:flex-end; gap:2px; align-items:center;">
                 <button class="tool-btn" title="Highlighter" id="highlight-btn"><i class="fas fa-highlighter"></i></button>
                 <button class="tool-btn hidden" title="Calculator" id="calc-btn"><i class="fas fa-calculator"></i></button>
-                <button class="tool-btn" title="Desmos Graphing Calculator" id="desmos-btn"><i class="fas fa-chart-line"></i></button>
-                <button class="tool-btn" title="Reference Sheet" id="ref-btn"><i class="fas fa-square-root-alt"></i></button>
-                <button class="btn btn-secondary btn-sm" id="end-test-early-btn" style="margin-left:0.5rem;">End Test</button>
+                <button class="tool-btn" title="Desmos" id="desmos-btn"><i class="fas fa-chart-line"></i></button>
+                <button class="tool-btn" title="Reference" id="ref-btn"><i class="fas fa-square-root-alt"></i></button>
+                <button class="btn btn-secondary btn-sm" id="end-test-early-btn" style="margin-left:4px;">End</button>
             </div>
         </header>
 
@@ -195,9 +195,9 @@
 
         <footer class="test-footer">
             <div class="footer-left">
-                <span class="font-semibold" id="question-number-display">Question 1 of 27</span>
-                <button class="btn btn-ghost btn-sm" id="flag-btn">
-                    <i class="far fa-bookmark" id="flag-icon"></i> Mark for Review
+                <span class="font-semibold" id="question-number-display" style="font-size:15px;">Question 1 of 27</span>
+                <button class="btn btn-ghost btn-sm" id="flag-btn" style="min-height:36px;">
+                    <i class="far fa-bookmark" id="flag-icon"></i> Flag
                 </button>
             </div>
             <nav class="question-navigator" id="nav-nodes"></nav>
@@ -210,19 +210,19 @@
     <!-- ===================== RESULTS ===================== -->
     <main id="results-view" class="view-container hidden">
         <header class="results-header">
-            <h2>Test Results & Analysis</h2>
+            <h2>Results</h2>
             <div class="flex-gap">
                 <button class="btn btn-secondary" id="review-questions-btn">
-                    <i class="fas fa-search"></i> Review Questions
+                    <i class="fas fa-search"></i> Review
                 </button>
                 <button class="btn btn-primary" id="return-dashboard-btn">
-                    <i class="fas fa-arrow-left"></i> Dashboard
+                    Done
                 </button>
             </div>
         </header>
 
         <section class="score-hero">
-            <div class="label">Total SAT Score</div>
+            <div class="label">Total Score</div>
             <div class="total-score" id="final-total-score">—</div>
             <div class="percentile" id="final-percentile">—</div>
             <div class="section-scores">
@@ -238,13 +238,13 @@
         </section>
 
         <section class="timer-analytics" id="timer-analytics">
-            <h3 class="section-title">Timing Analytics</h3>
+            <h3 class="section-title">Timing</h3>
             <div class="timer-grid" id="timer-grid"></div>
         </section>
 
         <section class="ai-panel">
             <div class="ai-panel-header">
-                <i class="fas fa-robot"></i>
+                <i class="fas fa-chart-pie"></i>
                 <h3>Weakness Diagnostic</h3>
             </div>
             <div id="weakness-tags" class="weakness-tags"></div>
@@ -254,13 +254,13 @@
         <section class="domain-grid" id="domain-breakdown"></section>
 
         <section id="review-section" class="review-section hidden">
-            <div class="flex-between mb-3" style="flex-wrap:wrap; gap:0.75rem;">
+            <div class="flex-between mb-3" style="flex-wrap:wrap; gap:12px;">
                 <div>
-                    <h3 class="section-title" style="margin-bottom:0.25rem;">Question Review</h3>
-                    <p class="text-sm text-secondary">Your answer vs correct · Explanations powered by GPT-4o-mini when a key is set</p>
+                    <h3 class="section-title" style="margin-bottom:2px;">Question Review</h3>
+                    <p class="text-sm text-secondary">Your answer vs correct</p>
                 </div>
                 <button class="btn btn-secondary btn-sm" id="generate-ai-explanations-btn">
-                    <i class="fas fa-magic"></i> Generate AI Explanations
+                    <i class="fas fa-magic"></i> AI Explanations
                 </button>
             </div>
             <div id="review-list" class="review-list"></div>
