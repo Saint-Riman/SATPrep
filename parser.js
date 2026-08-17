@@ -1,10 +1,11 @@
 /**
  * parser.js
- * Dual PDF handling + real question/option extraction + improved answer-key extraction.
+ * Dual PDF handling + real question/option extraction tuned for
+ * official College Board digital SAT practice-test PDFs.
  *
- * Key fix: Questions PDF is now actually parsed. Options that arrive
- * "bundled" inside the question stem are split out with multiple
- * robust patterns so the UI can display A/B/C/D choices correctly.
+ * The key fix: correctly split the short "A) word  B) word ..." options
+ * that appear after "Which choice completes the text..." so the UI no
+ * longer falls back to the four mock distractor strings.
  */
 
 const SAT_DOMAINS = {
@@ -30,19 +31,20 @@ const SAT_DOMAINS = {
 
 class PDFProcessor {
     static async parseFiles(questionsFile, answersFile = null) {
-        await new Promise(r => setTimeout(r, 800)); // small UX delay
+        await new Promise(r => setTimeout(r, 600));
 
         let extractedAnswers = null;
         let extractionNote = 'Using simulated answers (no answer key or extraction failed).';
         let realQuestions = null;
 
-        // ---- 1. Extract answer key (if provided) ----
+        // ---- 1. Answer key ----
         if (answersFile) {
             try {
                 const text = await this.extractText(answersFile);
                 extractedAnswers = this.parseAnswerKey(text);
-                if (extractedAnswers && extractedAnswers.filter(a => a !== null).length >= 15) {
-                    extractionNote = `Real answer key applied (${extractedAnswers.filter(a => a !== null).length} answers extracted).`;
+                const count = extractedAnswers ? extractedAnswers.filter(a => a !== null).length : 0;
+                if (count >= 15) {
+                    extractionNote = `Real answer key applied (${count} answers extracted).`;
                 } else {
                     extractedAnswers = null;
                     extractionNote = 'Answer key found but could not reliably parse enough answers. Using simulated answers.';
@@ -53,12 +55,13 @@ class PDFProcessor {
             }
         }
 
-        // ---- 2. Extract real questions + options from Questions PDF ----
+        // ---- 2. Questions + real options ----
         try {
             const qText = await this.extractText(questionsFile);
             realQuestions = this.parseQuestionsFromText(qText);
-            if (realQuestions && realQuestions.length >= 20) {
-                extractionNote += ` Extracted ${realQuestions.length} real questions from the Questions PDF.`;
+            if (realQuestions && realQuestions.length >= 15) {
+                const withOpts = realQuestions.filter(q => q.options && q.options.length === 4).length;
+                extractionNote += ` Extracted ${realQuestions.length} questions (${withOpts} with real A/B/C/D options).`;
             } else {
                 realQuestions = null;
                 extractionNote += ' Could not extract enough structured questions; falling back to simulated bank.';
@@ -71,8 +74,9 @@ class PDFProcessor {
 
         const testBank = this.generateTestBank(extractedAnswers, realQuestions);
         testBank.usedRealAnswers = !!(extractedAnswers && extractedAnswers.filter(a => a !== null).length >= 15);
-        testBank.usedRealQuestions = !!(realQuestions && realQuestions.length >= 20);
+        testBank.usedRealQuestions = !!(realQuestions && realQuestions.length >= 15);
         testBank.extractionNote = extractionNote;
+        console.log('[SATPrep]', extractionNote);
         return testBank;
     }
 
@@ -83,49 +87,55 @@ class PDFProcessor {
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const content = await page.getTextContent();
-            // Join with space; later cleaners handle extra whitespace
+            // Keep a space between items; later cleaners collapse runs
             fullText += content.items.map(item => item.str).join(' ') + '\n';
         }
         return fullText;
     }
 
-    /**
-     * More robust answer-key parser.
-     * Handles common College Board / practice-test formats.
-     */
+    /* ------------------------------------------------------------------ */
+    /*  Answer-key parser ("QUESTION 1  Choice B is the best answer...")  */
+    /* ------------------------------------------------------------------ */
     static parseAnswerKey(text) {
         const found = new Map();
-
         let cleaned = text
             .replace(/\r/g, '\n')
             .replace(/[ \t]+/g, ' ')
             .replace(/\n{2,}/g, '\n');
 
-        const patterns = [
+        // Primary pattern used by College Board answer explanations:
+        //   QUESTION 1
+        //   Choice B is the best answer because...
+        const primary = /QUESTION\s*(\d{1,2})\s*[\s\S]{0,40}?Choice\s*([A-Da-d])\s+is\s+the\s+best\s+answer/gi;
+        let m;
+        while ((m = primary.exec(cleaned)) !== null) {
+            const num = parseInt(m[1], 10);
+            if (num >= 1 && num <= 120 && !found.has(num)) {
+                found.set(num, m[2].toUpperCase());
+            }
+        }
+
+        // Fallbacks for other formats
+        const fallbacks = [
             /(?:Question\s*|Q\s*)?(\d{1,2})\s*[\.\):\-]?\s*([A-Da-d])(?=[\s\n,]|$)/gi,
             /(?:^|\n)\s*(\d{1,2})\s+([A-Da-d])(?=[\s\n,]|$)/gi,
             /(\d{1,2}).{0,12}(?:Answer|Ans\.?)\s*[:=]?\s*([A-Da-d])/gi
         ];
-
-        for (const re of patterns) {
-            let m;
+        for (const re of fallbacks) {
             while ((m = re.exec(cleaned)) !== null) {
                 const num = parseInt(m[1], 10);
-                const letter = m[2].toUpperCase();
                 if (num >= 1 && num <= 120 && !found.has(num)) {
-                    found.set(num, letter);
+                    found.set(num, m[2].toUpperCase());
                 }
             }
         }
 
-        // SPR / numeric answers (best-effort)
-        const sprPatterns = [
+        // SPR / numeric
+        const spr = [
             /(?:Question\s*|Q\s*)?(\d{1,2})\s*[\.\):\-]?\s*(\d+\/?\d*|\.\d+)(?=[\s\n,]|$)/gi,
             /(\d{1,2}).{0,10}(?:Answer|Ans\.?)\s*[:=]?\s*(\d+\/?\d*|\.\d+)/gi
         ];
-
-        for (const re of sprPatterns) {
-            let m;
+        for (const re of spr) {
             while ((m = re.exec(cleaned)) !== null) {
                 const num = parseInt(m[1], 10);
                 if (num >= 1 && num <= 120 && !found.has(num)) {
@@ -144,157 +154,181 @@ class PDFProcessor {
         return answers;
     }
 
-    /**
-     * Extract questions + options from the full Questions PDF text.
-     * Handles the common case where the stem and the four options arrive
-     * as one continuous block of text ("bundled").
-     */
+    /* ------------------------------------------------------------------ */
+    /*  Question + option extractor (tuned for digital SAT PDFs)          */
+    /* ------------------------------------------------------------------ */
     static parseQuestionsFromText(rawText) {
-        if (!rawText || rawText.length < 200) return null;
+        if (!rawText || rawText.length < 300) return null;
 
-        // Normalize whitespace while preserving paragraph-ish breaks
+        // Collapse whitespace but keep a single space so option markers stay intact
         let text = rawText
             .replace(/\r/g, '\n')
-            .replace(/[ \t]+/g, ' ')
-            .replace(/\n{3,}/g, '\n\n')
+            .replace(/[ \t\u00A0]+/g, ' ')
+            .replace(/\n{2,}/g, '\n')
             .trim();
+
+        // Remove common footer / header noise that confuses the splitter
+        text = text
+            .replace(/Unauthorized copying or reuse of any part of this page is illegal\.?/gi, ' ')
+            .replace(/CO\s*NTI\s*N\s*U\s*E/gi, ' ')
+            .replace(/Module\s*\d+/gi, ' ')
+            .replace(/\.{10,}/g, ' ');
 
         const questions = [];
 
-        // Split candidate blocks that look like numbered questions
-        // Patterns: "1. ", "1) ", "Question 1", "Q1.", etc.
-        const blockRegex = /(?:^|\n)\s*(?:Question\s*|Q\s*)?(\d{1,2})\s*[\.\)]\s+/gi;
-        const starts = [];
-        let m;
-        while ((m = blockRegex.exec(text)) !== null) {
-            starts.push({ index: m.index, num: parseInt(m[1], 10), matchLen: m[0].length });
-        }
+        // Strategy 1 – look for the characteristic digital-SAT prompt that almost always
+        // precedes the four options. This is far more reliable than pure numbering.
+        const promptRe = /Which choice (?:completes the text with the most logical and precise word or phrase|best (?:states|describes|completes|illustrates|supports|uses data|most effectively|most accurately|most logically)[^.?]{0,80}\?)/gi;
 
-        if (starts.length < 10) {
-            // Fallback: look for lines that begin with a number followed by a capital letter (common in some extracts)
-            const altRegex = /(?:^|\n)\s*(\d{1,2})\s+([A-Z])/g;
-            starts.length = 0;
-            while ((m = altRegex.exec(text)) !== null) {
-                starts.push({ index: m.index, num: parseInt(m[1], 10), matchLen: m[0].length - 1 });
+        // Also catch the numbered starts that appear in the two-column layout
+        const numberStarts = [];
+        const numRe = /(?:^|\n|\s)(\d{1,2})\s+(?=[A-Z“"])/g;
+        let m;
+        while ((m = numRe.exec(text)) !== null) {
+            const num = parseInt(m[1], 10);
+            if (num >= 1 && num <= 40) {
+                numberStarts.push({ index: m.index + m[0].indexOf(m[1]), num });
             }
         }
 
-        if (starts.length < 8) return null;
+        // Build candidate blocks around each number start
+        for (let i = 0; i < numberStarts.length; i++) {
+            const start = numberStarts[i];
+            const end = i + 1 < numberStarts.length ? numberStarts[i + 1].index : Math.min(start.index + 1800, text.length);
+            let block = text.slice(start.index, end).trim();
 
-        for (let i = 0; i < starts.length; i++) {
-            const start = starts[i];
-            const end = i + 1 < starts.length ? starts[i + 1].index : text.length;
-            let block = text.slice(start.index + start.matchLen, end).trim();
+            // Strip the leading number itself
+            block = block.replace(/^\d{1,2}\s+/, '');
 
-            if (block.length < 20) continue;
+            if (block.length < 30) continue;
 
-            // ---- Split stem from options (the "bundled" case) ----
             const { stem, options } = this.splitStemAndOptions(block);
 
-            if (!stem || stem.length < 10) continue;
+            if (!stem || stem.length < 15) continue;
 
-            const isMCQ = options && options.length === 4;
-            const isSPR = !isMCQ; // treat as student-produced response if we cannot find 4 clean options
+            const isMCQ = options && options.length === 4 && options.every(o => o.length > 0);
 
             questions.push({
                 number: start.num,
                 text: stem,
                 options: isMCQ ? options : null,
                 type: isMCQ ? 'MCQ' : 'SPR',
-                // domain/tag will be assigned later by the bank builder
                 domain: null,
                 tag: null
             });
         }
 
-        // Deduplicate by number (keep first occurrence)
+        // Deduplicate (keep first occurrence of each number)
         const seen = new Set();
         const unique = [];
         for (const q of questions) {
-            if (!seen.has(q.number) && q.number >= 1 && q.number <= 80) {
+            if (!seen.has(q.number)) {
                 seen.add(q.number);
                 unique.push(q);
             }
         }
 
-        return unique.length >= 15 ? unique : null;
+        // Prefer questions that actually got real options
+        const withOptions = unique.filter(q => q.options && q.options.length === 4);
+        if (withOptions.length >= 12) return withOptions;
+        if (unique.length >= 15) return unique;
+        return null;
     }
 
     /**
-     * Core splitter: given a block that may contain the stem + A/B/C/D
-     * all smashed together, pull the four options out cleanly.
+     * Split a question block into stem + four options.
+     * Handles the exact short-option format produced by pdf.js on digital SAT PDFs:
+     *   ... phrase? A) attached B) collected C) followed D) replaced
+     * as well as longer multi-word options.
      */
     static splitStemAndOptions(block) {
-        // Common option markers after PDF text extraction
-        const optionStartPatterns = [
-            /\s([A-D])\)\s+/g,           // A)  B)  C)  D)
-            /\s([A-D])\.\s+/g,           // A.  B.  C.  D.
-            /\s\(([A-D])\)\s+/g,         // (A) (B) (C) (D)
-            /\s([A-D])\s{2,}/g,          // A   B   (double space)
-            /\n\s*([A-D])[\.\)]\s+/g     // newline + A. or A)
-        ];
-
-        let best = null;
-
-        for (const re of optionStartPatterns) {
-            const matches = [];
-            let m;
-            // Reset lastIndex
-            re.lastIndex = 0;
-            while ((m = re.exec(block)) !== null) {
-                matches.push({
-                    letter: m[1].toUpperCase(),
-                    index: m.index,
-                    fullMatch: m[0],
-                    matchLen: m[0].length
-                });
-            }
-
-            // We need exactly the sequence A B C D (or at least 4 consecutive letters)
-            if (matches.length >= 4) {
-                // Find the first run of A-B-C-D
-                for (let i = 0; i <= matches.length - 4; i++) {
-                    const a = matches[i], b = matches[i+1], c = matches[i+2], d = matches[i+3];
-                    if (a.letter === 'A' && b.letter === 'B' && c.letter === 'C' && d.letter === 'D') {
-                        const stem = block.slice(0, a.index).trim();
-                        const optA = block.slice(a.index + a.matchLen, b.index).trim();
-                        const optB = block.slice(b.index + b.matchLen, c.index).trim();
-                        const optC = block.slice(c.index + c.matchLen, d.index).trim();
-                        const optD = block.slice(d.index + d.matchLen).trim();
-
-                        // Basic quality check – each option should have some text
-                        if (optA.length > 1 && optB.length > 1 && optC.length > 1 && optD.length > 1) {
-                            best = {
-                                stem: stem || '(Question stem could not be cleanly separated)',
-                                options: [optA, optB, optC, optD]
-                            };
-                            break;
-                        }
-                    }
-                }
-            }
-            if (best) break;
+        // Primary pattern – the four options appear as A) ... B) ... C) ... D) ...
+        // We look for the *last* clean A-B-C-D sequence in the block (options are at the end).
+        const optionMarker = /\s([A-D])\)\s*/g;
+        const markers = [];
+        let m;
+        while ((m = optionMarker.exec(block)) !== null) {
+            markers.push({
+                letter: m[1].toUpperCase(),
+                index: m.index,
+                matchLen: m[0].length
+            });
         }
 
-        // Fallback: try a more aggressive split on "A) " style even if letters are not perfectly sequential
-        if (!best) {
-            const aggressive = block.split(/\s(?=[A-D][\.\)]\s)/);
-            if (aggressive.length >= 5) {
-                // first piece is stem, next four are options
-                const stem = aggressive[0].trim();
-                const opts = aggressive.slice(1, 5).map(s => s.replace(/^[A-D][\.\)]\s*/, '').trim());
-                if (opts.every(o => o.length > 1)) {
-                    best = { stem, options: opts };
+        // Find the rightmost A-B-C-D run
+        for (let i = markers.length - 4; i >= 0; i--) {
+            const a = markers[i], b = markers[i+1], c = markers[i+2], d = markers[i+3];
+            if (a.letter === 'A' && b.letter === 'B' && c.letter === 'C' && d.letter === 'D') {
+                const stem = block.slice(0, a.index).trim();
+                // Clean trailing prompt fragments that sometimes stick to the stem
+                const cleanStem = stem
+                    .replace(/\s*Which choice (?:completes the text with the most logical and precise word or phrase|best [^.?]{0,90})\??\s*$/i, '')
+                    .trim();
+
+                const optA = block.slice(a.index + a.matchLen, b.index).trim();
+                const optB = block.slice(b.index + b.matchLen, c.index).trim();
+                const optC = block.slice(c.index + c.matchLen, d.index).trim();
+                let optD = block.slice(d.index + d.matchLen).trim();
+
+                // Trim any trailing page noise from the last option
+                optD = optD
+                    .replace(/\s*Unauthorized copying.*$/i, '')
+                    .replace(/\s*CO\s*NTI\s*N\s*U\s*E.*$/i, '')
+                    .replace(/\s*\d{1,3}\s*$/, '')
+                    .trim();
+
+                if (optA.length >= 1 && optB.length >= 1 && optC.length >= 1 && optD.length >= 1) {
+                    return {
+                        stem: cleanStem || stem,
+                        options: [optA, optB, optC, optD]
+                    };
                 }
             }
         }
 
-        if (best) return best;
+        // Secondary pattern – A. B. C. D.
+        const dotMarker = /\s([A-D])\.\s+/g;
+        const dots = [];
+        while ((m = dotMarker.exec(block)) !== null) {
+            dots.push({ letter: m[1].toUpperCase(), index: m.index, matchLen: m[0].length });
+        }
+        for (let i = dots.length - 4; i >= 0; i--) {
+            const a = dots[i], b = dots[i+1], c = dots[i+2], d = dots[i+3];
+            if (a.letter === 'A' && b.letter === 'B' && c.letter === 'C' && d.letter === 'D') {
+                const stem = block.slice(0, a.index).trim();
+                const optA = block.slice(a.index + a.matchLen, b.index).trim();
+                const optB = block.slice(b.index + b.matchLen, c.index).trim();
+                const optC = block.slice(c.index + c.matchLen, d.index).trim();
+                const optD = block.slice(d.index + d.matchLen).trim()
+                    .replace(/\s*Unauthorized copying.*$/i, '')
+                    .trim();
+                if (optA && optB && optC && optD) {
+                    return { stem, options: [optA, optB, optC, optD] };
+                }
+            }
+        }
 
-        // No clean options found → treat whole block as stem (SPR or later fallback)
+        // Aggressive fallback – split on the four markers even if spacing is irregular
+        const aggressive = block.split(/\s+(?=[A-D]\)\s*)/);
+        if (aggressive.length >= 5) {
+            const stem = aggressive[0].trim()
+                .replace(/\s*Which choice (?:completes the text with the most logical and precise word or phrase|best [^.?]{0,90})\??\s*$/i, '')
+                .trim();
+            const opts = aggressive.slice(1, 5).map(s =>
+                s.replace(/^[A-D]\)\s*/, '').replace(/\s*Unauthorized copying.*$/i, '').trim()
+            );
+            if (opts.every(o => o.length >= 1)) {
+                return { stem, options: opts };
+            }
+        }
+
+        // No options found
         return { stem: block.trim(), options: null };
     }
 
+    /* ------------------------------------------------------------------ */
+    /*  Build the adaptive test bank                                      */
+    /* ------------------------------------------------------------------ */
     static generateTestBank(extractedAnswers, realQuestions) {
         const id = 'sat_practice_' + Date.now();
         let answerIdx = 0;
@@ -305,17 +339,16 @@ class PDFProcessor {
             if (raw === null || raw === undefined) return null;
             if (isSPR) return String(raw);
             if (typeof raw === 'string' && /^[A-D]$/i.test(raw)) {
-                return raw.toUpperCase().charCodeAt(0) - 65; // A=0, B=1...
+                return raw.toUpperCase().charCodeAt(0) - 65;
             }
             return null;
         };
 
-        // Prefer real questions when we have them; otherwise pure mock
-        if (realQuestions && realQuestions.length >= 20) {
+        if (realQuestions && realQuestions.length >= 15) {
             return this.buildBankFromReal(realQuestions, takeAnswer, id);
         }
 
-        // Classic mock path
+        // Pure mock fallback
         return {
             id,
             title: 'College Board Official Practice Test (Simulated Content)',
@@ -337,37 +370,31 @@ class PDFProcessor {
         };
     }
 
-    /**
-     * Build adaptive modules from the questions we successfully extracted.
-     * We still assign domains/tags randomly (or by simple heuristics) because
-     * full domain classification from raw PDF text is unreliable without an LLM.
-     */
     static buildBankFromReal(realQs, takeAnswerFn, id) {
-        // Separate roughly into RW-ish vs Math-ish by looking for math keywords
-        const mathKeywords = /equation|solve|function|graph|triangle|angle|ratio|percent|probability|volume|area|linear|quadratic|x\s*=|y\s*=|\d+\s*[\+\-\*\/]/i;
+        const mathKeywords = /equation|solve|function|graph|triangle|angle|ratio|percent|probability|volume|area|linear|quadratic|x\s*=|y\s*=|\d+\s*[\+\-\*\/]|ablation|mycorrhizal|organic farms/i;
 
         const rwPool = [];
         const mathPool = [];
 
         realQs.forEach(q => {
-            if (mathKeywords.test(q.text) || (q.options && q.options.some(o => /^\d+(\.\d+)?$/.test(o.trim())))) {
+            if (mathKeywords.test(q.text) || (q.options && q.options.some(o => /^[\d\.\/]+$/.test(o.trim())))) {
                 mathPool.push(q);
             } else {
                 rwPool.push(q);
             }
         });
 
-        // Ensure we have enough; pad with generated questions if necessary
         const ensureCount = (pool, type, needed) => {
-            while (pool.length < needed) {
+            const copy = [...pool];
+            while (copy.length < needed) {
                 const mock = this.generateQuestions(1, type, 'mixed', () => null)[0];
-                pool.push(mock);
+                copy.push(mock);
             }
-            return pool.slice(0, needed);
+            return copy.slice(0, needed);
         };
 
         const makeModule = (pool, type, count, difficulty) => {
-            const selected = ensureCount([...pool], type, count);
+            const selected = ensureCount(pool, type, count);
             return selected.map((raw, idx) => {
                 const domainList = SAT_DOMAINS[type].domains;
                 const domain = domainList[idx % domainList.length];
@@ -377,6 +404,22 @@ class PDFProcessor {
                 const isSPR = raw.type === 'SPR' || (type === 'MATH' && !raw.options);
                 let correct = takeAnswerFn ? takeAnswerFn(isSPR) : null;
 
+                // Prefer the real options when we successfully extracted them
+                let options = null;
+                if (!isSPR) {
+                    if (raw.options && raw.options.length === 4) {
+                        options = raw.options;
+                    } else {
+                        // Only fall back to mock distractors if extraction truly failed
+                        options = [
+                            'A distractor that is close but incomplete.',
+                            'The option that best aligns with the passage evidence.',
+                            'A choice that overgeneralizes beyond the text.',
+                            'An extreme claim not supported by the passage.'
+                        ];
+                    }
+                }
+
                 const q = {
                     id: `${type}_${difficulty}_${idx + 1}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
                     number: idx + 1,
@@ -385,14 +428,9 @@ class PDFProcessor {
                     difficulty,
                     type: isSPR ? 'SPR' : 'MCQ',
                     correctAnswer: correct,
-                    passage: type === 'RW' ? (raw.passage || this.generateMockPassage(domain)) : null,
+                    passage: type === 'RW' ? (raw.passage || null) : null,
                     text: raw.text || `Question about ${tag}`,
-                    options: isSPR ? null : (raw.options || [
-                        'A distractor that is close but incomplete.',
-                        'The option that best aligns with the passage evidence.',
-                        'A choice that overgeneralizes beyond the text.',
-                        'An extreme claim not supported by the passage.'
-                    ])
+                    options
                 };
 
                 if (q.correctAnswer === null) {
