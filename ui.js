@@ -1,10 +1,18 @@
 /**
- * ui.js — Bluebook-style app shell
- * Landing · Hamburger · Practice / Tips / Profile / Skills · Separate RW & Math scores
+ * ui.js — Premium Home · Hamburger · Practice / Tips / Skills / Profile
+ * Interactive cards navigate deep into the app.
  */
 
 const STORAGE_KEY = 'dsat_prep_hub_v1';
 const OPENAI_KEY_STORAGE = 'dsat_openai_key';
+
+const SECTION_TITLES = {
+    home: 'Home',
+    practice: 'Practice',
+    tips: 'Tips',
+    skills: 'Skills',
+    profile: 'Profile'
+};
 
 class Storage {
     static load() {
@@ -28,7 +36,6 @@ class Storage {
                 history: [], createdAt: new Date().toISOString()
             };
         }
-        // Migrate old total-only scores if present
         if (data.users[username].currentScore && !data.users[username].rwCurrent) {
             const half = Math.round((data.users[username].currentScore || 1200) / 2);
             data.users[username].rwCurrent = half;
@@ -75,7 +82,7 @@ class UIController {
             results: document.getElementById('results-view')
         };
         this.authMode = 'login';
-        this.currentSection = 'practice';
+        this.currentSection = 'home';
         this.bindLanding();
         this.bindAuth();
         this.bindNav();
@@ -98,7 +105,6 @@ class UIController {
         }
     }
 
-    /* ---- Landing ---- */
     bindLanding() {
         document.getElementById('landing-start-btn')?.addEventListener('click', () => {
             this.hideLanding();
@@ -113,7 +119,6 @@ class UIController {
         this.views.landing?.classList.add('hidden');
     }
 
-    /* ---- Auth ---- */
     bindAuth() {
         const form = document.getElementById('auth-form');
         const tabLogin = document.getElementById('tab-login');
@@ -153,6 +158,7 @@ class UIController {
                 Storage.setSession(username);
             }
             this.hideAuth();
+            this.currentSection = 'home';
             this.showDashboard();
             this.refreshDashboard();
         });
@@ -176,23 +182,27 @@ class UIController {
         this.showLanding();
     }
 
-    /* ---- Hamburger / Nav ---- */
     bindNav() {
         document.getElementById('hamburger-btn')?.addEventListener('click', () => this.openDrawer());
         document.getElementById('close-drawer-btn')?.addEventListener('click', () => this.closeDrawer());
         document.getElementById('nav-drawer-overlay')?.addEventListener('click', () => this.closeDrawer());
 
-        document.querySelectorAll('.nav-link').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const section = btn.dataset.nav;
+        // All elements with data-nav (drawer links + home cards + CTAs)
+        document.addEventListener('click', (e) => {
+            const navEl = e.target.closest('[data-nav]');
+            if (!navEl) return;
+            const section = navEl.dataset.nav;
+            if (!section) return;
+            // Only route if we're in the dashboard shell
+            if (this.views.dashboard && !this.views.dashboard.classList.contains('hidden')) {
                 this.switchSection(section);
                 this.closeDrawer();
-            });
+            }
         });
 
         document.getElementById('return-dashboard-btn')?.addEventListener('click', () => {
+            this.currentSection = 'home';
             this.showDashboard();
-            this.switchSection('practice');
             this.refreshDashboard();
         });
     }
@@ -200,7 +210,6 @@ class UIController {
     openDrawer() {
         document.getElementById('nav-drawer')?.classList.add('open');
         document.getElementById('nav-drawer-overlay')?.classList.remove('hidden');
-        const user = Storage.getCurrentUser();
         const nameEl = document.getElementById('drawer-username');
         if (nameEl) nameEl.textContent = Storage.load().session || 'Guest';
     }
@@ -210,17 +219,21 @@ class UIController {
     }
 
     switchSection(name) {
+        if (!['home', 'practice', 'tips', 'skills', 'profile'].includes(name)) return;
         this.currentSection = name;
-        ['practice', 'tips', 'profile', 'skills'].forEach(s => {
+        ['home', 'practice', 'tips', 'profile', 'skills'].forEach(s => {
             const el = document.getElementById(`section-${s}`);
             if (el) el.classList.toggle('hidden', s !== name);
         });
         document.querySelectorAll('.nav-link').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.nav === name);
         });
+        const title = document.getElementById('app-header-title');
+        if (title) title.textContent = SECTION_TITLES[name] || 'DSAT Prep';
+        // Scroll top when switching
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    /* ---- Separate RW / Math scores ---- */
     bindScores() {
         const ids = ['rw-current-input', 'rw-target-input', 'math-current-input', 'math-target-input'];
         const save = () => this.saveSectionScores();
@@ -244,6 +257,7 @@ class UIController {
             mathCurrent: mC, mathTarget: mT
         });
         this.updatePointsDisplay();
+        this.renderHome();
     }
 
     updatePointsDisplay() {
@@ -269,7 +283,6 @@ class UIController {
         if (targetEl) targetEl.textContent = rwT + mT;
     }
 
-    /* ---- OpenAI ---- */
     bindOpenAISettings() {
         const input = document.getElementById('openai-key-input');
         const status = document.getElementById('openai-key-status');
@@ -299,7 +312,6 @@ class UIController {
         });
     }
 
-    /* ---- Results / AI explain ---- */
     bindResults() {
         document.getElementById('review-questions-btn')?.addEventListener('click', () => {
             const section = document.getElementById('review-section');
@@ -351,7 +363,6 @@ class UIController {
         }
     }
 
-    /* ---- Test cards & tips ---- */
     renderTestCards() {
         const container = document.getElementById('test-cards');
         if (!container || !window.OFFICIAL_TESTS) return;
@@ -386,6 +397,69 @@ class UIController {
         ).join('');
     }
 
+    /** Premium Home — scores, weakness, highest, tests, recent */
+    renderHome() {
+        const user = Storage.getCurrentUser();
+        if (!user) return;
+
+        const username = Storage.load().session || 'Student';
+        const greet = document.getElementById('home-greeting');
+        if (greet) {
+            const hour = new Date().getHours();
+            const part = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+            greet.textContent = `${part}, ${username}`;
+        }
+
+        const rwC = user.rwCurrent ?? 600;
+        const mC = user.mathCurrent ?? 600;
+        const rwT = user.rwTarget ?? 750;
+        const mT = user.mathTarget ?? 750;
+        const total = rwC + mC;
+        const target = rwT + mT;
+        const gap = target - total;
+
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        set('home-current-total', total);
+        set('home-target-total', target);
+        set('home-rw-math-line', `RW ${rwC} · Math ${mC}`);
+        set('home-gap-line', gap > 0 ? `${gap} to go` : gap < 0 ? `${Math.abs(gap)} above target` : 'Target reached');
+
+        const history = user.history || [];
+        set('home-tests-count', String(history.length));
+
+        if (history.length) {
+            const highest = Math.max(...history.map(h => h.total || 0));
+            const avg = Math.round(history.reduce((s, h) => s + (h.total || 0), 0) / history.length);
+            set('home-highest', String(highest));
+            set('home-avg', String(avg));
+
+            const weaknessCount = {};
+            history.forEach(h => (h.topWeaknesses || []).forEach(w => {
+                weaknessCount[w] = (weaknessCount[w] || 0) + 1;
+            }));
+            const sorted = Object.entries(weaknessCount).sort((a, b) => b[1] - a[1]);
+            set('home-weakness', sorted.length ? sorted[0][0] : 'None major');
+
+            const list = document.getElementById('home-recent-list');
+            if (list) {
+                list.innerHTML = history.slice(0, 4).map(h => {
+                    const date = new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                    return `<div class="home-recent-item">
+                        <div><span class="font-medium">${date}</span>
+                        <span class="text-xs text-muted"> · RW ${h.rw} · Math ${h.math}</span></div>
+                        <div class="home-recent-score">${h.total}</div>
+                    </div>`;
+                }).join('');
+            }
+        } else {
+            set('home-highest', '—');
+            set('home-avg', '—');
+            set('home-weakness', 'Take a test');
+            const list = document.getElementById('home-recent-list');
+            if (list) list.innerHTML = '<div class="text-sm text-muted">No tests yet — start one to unlock insights.</div>';
+        }
+    }
+
     startOfficialTest(testId) {
         const test = window.OFFICIAL_TESTS?.[testId];
         if (!test || !test.available) {
@@ -408,7 +482,6 @@ class UIController {
         }
     }
 
-    /* ---- Dashboard refresh ---- */
     refreshDashboard() {
         const user = Storage.getCurrentUser();
         if (!user) return;
@@ -419,7 +492,6 @@ class UIController {
         const drawerName = document.getElementById('drawer-username');
         if (drawerName) drawerName.textContent = username;
 
-        // Section scores
         const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
         setVal('rw-current-input', user.rwCurrent ?? 600);
         setVal('rw-target-input', user.rwTarget ?? 750);
@@ -427,6 +499,7 @@ class UIController {
         setVal('math-target-input', user.mathTarget ?? 750);
         this.updatePointsDisplay();
 
+        this.renderHome();
         this.renderTestCards();
         this.renderTips();
 
@@ -445,6 +518,7 @@ class UIController {
             if (weakSub) weakSub.textContent = 'Complete a test to see data';
             if (histList) histList.innerHTML = '<div class="text-sm text-muted" style="padding:16px;">No practice tests yet.</div>';
             if (skillsGrid) skillsGrid.innerHTML = '<div class="text-sm text-muted">Complete tests to build your skill profile.</div>';
+            this.switchSection(this.currentSection || 'home');
             return;
         }
 
@@ -470,7 +544,9 @@ class UIController {
             if (!skills.length) {
                 skillsGrid.innerHTML = '<div class="text-sm text-muted">Skill data will appear after detailed tests.</div>';
             } else {
-                skillsGrid.innerHTML = skills.slice(0, 12).map(s => {
+                // Sort weakest first so assessment is actionable
+                const ranked = [...skills].sort((a, b) => a.accuracy - b.accuracy);
+                skillsGrid.innerHTML = ranked.slice(0, 12).map(s => {
                     let color = 'var(--success)';
                     if (s.accuracy < 60) color = 'var(--danger)';
                     else if (s.accuracy < 75) color = 'var(--warning)';
@@ -495,16 +571,17 @@ class UIController {
                 </div>`;
             }).join('');
         }
+
+        this.switchSection(this.currentSection || 'home');
     }
 
-    /* ---- View helpers ---- */
     hideAllViews() {
         Object.values(this.views).forEach(v => v?.classList.add('hidden'));
     }
     showDashboard() {
         this.hideAllViews();
         this.views.dashboard?.classList.remove('hidden');
-        this.switchSection(this.currentSection || 'practice');
+        this.switchSection(this.currentSection || 'home');
     }
     showTestView() {
         this.hideAllViews();
