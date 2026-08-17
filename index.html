@@ -13,7 +13,31 @@
 </head>
 <body>
 
-    <div id="auth-modal" class="modal-overlay">
+    <!-- ========== LANDING PAGE ========== -->
+    <div id="landing-view" class="view-container">
+        <div class="landing-hero">
+            <div class="landing-logo">
+                <div class="brand-icon landing-icon"><i class="fas fa-graduation-cap"></i></div>
+                <h1 class="large-title">DSAT Prep</h1>
+                <p class="landing-tagline">Bluebook-style Digital SAT practice</p>
+            </div>
+            <p class="landing-desc">Official practice tests with real timing, adaptive modules, and detailed weak-area analysis — built to feel like the real exam.</p>
+            <div class="landing-actions">
+                <button class="btn btn-primary btn-lg" id="landing-start-btn">
+                    Get Started
+                </button>
+                <p class="text-sm text-secondary" style="margin-top:12px;">Free · Works offline after first load</p>
+            </div>
+            <div class="landing-features">
+                <div class="feature-chip"><i class="fas fa-clock"></i> Official timing</div>
+                <div class="feature-chip"><i class="fas fa-chart-line"></i> Desmos built-in</div>
+                <div class="feature-chip"><i class="fas fa-bullseye"></i> Weak-area tracking</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== AUTH SHEET ========== -->
+    <div id="auth-modal" class="modal-overlay hidden">
         <div class="modal">
             <div class="modal-header">
                 <h2>DSAT Prep Hub</h2>
@@ -38,6 +62,43 @@
         </div>
     </div>
 
+    <!-- ========== HAMBURGER DRAWER ========== -->
+    <div id="nav-drawer-overlay" class="nav-drawer-overlay hidden"></div>
+    <aside id="nav-drawer" class="nav-drawer">
+        <div class="nav-drawer-header">
+            <div class="brand">
+                <div class="brand-icon" style="width:36px;height:36px;font-size:16px;"><i class="fas fa-graduation-cap"></i></div>
+                <div>
+                    <h2 style="font-size:17px;font-weight:700;">DSAT Prep</h2>
+                    <p class="text-xs text-secondary" id="drawer-username">Guest</p>
+                </div>
+            </div>
+            <button class="btn btn-ghost btn-sm" id="close-drawer-btn" style="min-width:44px;min-height:44px;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <nav class="nav-drawer-links">
+            <button class="nav-link" data-nav="practice">
+                <i class="fas fa-book-open"></i> Practice Tests
+            </button>
+            <button class="nav-link" data-nav="tips">
+                <i class="fas fa-lightbulb"></i> Tips & Tricks
+            </button>
+            <button class="nav-link" data-nav="profile">
+                <i class="fas fa-user"></i> My Profile
+            </button>
+            <button class="nav-link" data-nav="skills">
+                <i class="fas fa-chart-pie"></i> Skill Breakdown
+            </button>
+        </nav>
+        <div class="nav-drawer-footer">
+            <button class="btn btn-secondary btn-sm" id="drawer-logout-btn" style="width:100%;">
+                <i class="fas fa-sign-out-alt"></i> Log Out
+            </button>
+        </div>
+    </aside>
+
+    <!-- ========== DESMOS ========== -->
     <div id="desmos-modal" class="modal-overlay hidden">
         <div class="modal desmos-modal">
             <div class="desmos-header">
@@ -48,97 +109,143 @@
         </div>
     </div>
 
+    <!-- ========== DASHBOARD / APP SHELL ========== -->
     <main id="dashboard-view" class="view-container hidden">
-        <header class="dashboard-header">
-            <div class="brand">
-                <div class="brand-icon"><i class="fas fa-graduation-cap"></i></div>
-                <div>
-                    <h1>DSAT Prep</h1>
-                    <p>Bluebook-style practice</p>
-                </div>
+        <header class="app-header">
+            <button class="btn btn-ghost btn-sm hamburger-btn" id="hamburger-btn" style="min-width:44px;min-height:44px;">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="brand" style="flex:1; justify-content:center;">
+                <h1 style="font-size:17px; font-weight:600;">DSAT Prep</h1>
             </div>
-            <div class="flex-gap">
-                <div class="user-chip" id="user-chip">
-                    <div class="user-avatar" id="user-avatar">?</div>
-                    <span id="user-display-name">Guest</span>
-                </div>
-                <button class="btn btn-ghost btn-sm" id="logout-btn" title="Log out" style="min-width:44px;min-height:44px;">
-                    <i class="fas fa-sign-out-alt"></i>
-                </button>
-            </div>
+            <div class="user-avatar" id="user-avatar" style="width:32px;height:32px;font-size:13px;">?</div>
         </header>
 
-        <section class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-label">Current</div>
-                <div class="score-input-wrap">
-                    <input type="number" class="score-input primary" id="current-score-input" min="400" max="1600" step="10" value="1200">
-                    <span class="text-muted text-sm">/1600</span>
+        <!-- PRACTICE SECTION (default) -->
+        <section id="section-practice" class="app-section">
+            <div class="section-pad">
+                <h2 class="title-2" style="margin-bottom:4px;">Practice Tests</h2>
+                <p class="text-sm text-secondary" style="margin-bottom:16px;">Official College Board Digital SAT · real timing</p>
+                <div class="test-cards" id="test-cards"></div>
+                <p class="text-sm text-secondary" style="margin-top:12px;">RW 32 min · Math 35 min per module</p>
+            </div>
+        </section>
+
+        <!-- TIPS SECTION -->
+        <section id="section-tips" class="app-section hidden">
+            <div class="section-pad">
+                <h2 class="title-2" style="margin-bottom:4px;">Tips & Tricks</h2>
+                <p class="text-sm text-secondary" style="margin-bottom:16px;">Strategies that actually move your score</p>
+                <div id="tips-list" class="tips-list"></div>
+            </div>
+        </section>
+
+        <!-- PROFILE SECTION -->
+        <section id="section-profile" class="app-section hidden">
+            <div class="section-pad">
+                <h2 class="title-2" style="margin-bottom:4px;">My Profile</h2>
+                <p class="text-sm text-secondary" style="margin-bottom:16px;">Scores, targets, and settings</p>
+
+                <div class="score-section-card">
+                    <h3 class="headline" style="margin-bottom:12px;">Reading & Writing</h3>
+                    <div class="score-row">
+                        <div class="score-field">
+                            <label class="label">Current</label>
+                            <div class="score-input-wrap">
+                                <input type="number" class="score-input primary" id="rw-current-input" min="200" max="800" step="10" value="600">
+                                <span class="text-muted text-sm">/800</span>
+                            </div>
+                        </div>
+                        <div class="score-field">
+                            <label class="label">Target</label>
+                            <div class="score-input-wrap">
+                                <input type="number" class="score-input" id="rw-target-input" min="200" max="800" step="10" value="750">
+                                <span class="text-muted text-sm">/800</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="stat-sub" id="rw-points-to-go">— to go</p>
                 </div>
-                <div class="stat-sub">Self-reported</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Target</div>
-                <div class="score-input-wrap">
-                    <input type="number" class="score-input" id="target-score-input" min="400" max="1600" step="10" value="1500">
-                    <span class="text-muted text-sm">/1600</span>
+
+                <div class="score-section-card" style="margin-top:12px;">
+                    <h3 class="headline" style="margin-bottom:12px;">Math</h3>
+                    <div class="score-row">
+                        <div class="score-field">
+                            <label class="label">Current</label>
+                            <div class="score-input-wrap">
+                                <input type="number" class="score-input primary" id="math-current-input" min="200" max="800" step="10" value="600">
+                                <span class="text-muted text-sm">/800</span>
+                            </div>
+                        </div>
+                        <div class="score-field">
+                            <label class="label">Target</label>
+                            <div class="score-input-wrap">
+                                <input type="number" class="score-input" id="math-target-input" min="200" max="800" step="10" value="750">
+                                <span class="text-muted text-sm">/800</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="stat-sub" id="math-points-to-go">— to go</p>
                 </div>
-                <div class="stat-sub" id="points-to-go">— to go</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Average</div>
-                <div class="stat-value success" id="avg-score-display">—</div>
-                <div class="stat-sub" id="avg-score-sub">No tests yet</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Top Weakness</div>
-                <div class="stat-value" style="font-size:18px;" id="top-weakness-display">—</div>
-                <div class="stat-sub" id="top-weakness-sub">After first test</div>
+
+                <div class="score-section-card" style="margin-top:12px;">
+                    <div class="flex-between">
+                        <div>
+                            <div class="stat-label">Combined Total</div>
+                            <div class="stat-value" id="combined-total-display" style="font-size:28px;">1200</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div class="stat-label">Target Total</div>
+                            <div class="stat-value" id="combined-target-display" style="font-size:22px; color:var(--system-blue);">1500</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section" style="margin-top:20px;">
+                    <h3 class="section-title">AI Explanations</h3>
+                    <p class="text-sm text-secondary">Optional OpenAI key for GPT-4o-mini. Stored only in this browser.</p>
+                    <div class="settings-row">
+                        <input type="password" class="input" id="openai-key-input" placeholder="sk-proj-… or sk-…" style="flex:1; min-width:0;">
+                        <button class="btn btn-secondary btn-sm" id="save-openai-key-btn">Save</button>
+                        <button class="btn btn-ghost btn-sm" id="clear-openai-key-btn">Clear</button>
+                    </div>
+                    <p class="text-xs text-muted mt-2" id="openai-key-status">No key saved</p>
+                </div>
+
+                <div class="history-section" style="margin-top:20px;">
+                    <h3 class="section-title">Recent Tests</h3>
+                    <div class="history-list" id="history-list">
+                        <div class="text-sm text-muted" style="padding:16px;">No practice tests yet.</div>
+                    </div>
+                </div>
             </div>
         </section>
 
-        <section class="upload-section" id="test-selector-section">
-            <div class="upload-header">
-                <h2>Official Practice Tests</h2>
-                <p>Select a College Board Digital SAT practice test. Timing matches the real exam.</p>
-            </div>
-            <div class="test-cards" id="test-cards"></div>
-            <p class="text-sm text-secondary" style="margin-top:12px;">Official timing: Reading & Writing 32 min · Math 35 min per module</p>
-        </section>
-
-        <section class="settings-section" id="tips-section">
-            <h3 class="section-title">Top Tips & Tricks</h3>
-            <p class="text-sm text-secondary">Quick strategies for higher scores</p>
-            <div id="tips-list" class="tips-list"></div>
-        </section>
-
-        <section class="settings-section">
-            <h3 class="section-title">AI Explanations</h3>
-            <p class="text-sm text-secondary">Optional OpenAI key for GPT-4o-mini explanations. Stored only in this browser.</p>
-            <div class="settings-row">
-                <input type="password" class="input" id="openai-key-input" placeholder="sk-proj-… or sk-…" style="flex:1; min-width:0;">
-                <button class="btn btn-secondary btn-sm" id="save-openai-key-btn">Save</button>
-                <button class="btn btn-ghost btn-sm" id="clear-openai-key-btn">Clear</button>
-            </div>
-            <p class="text-xs text-muted mt-2" id="openai-key-status">No key saved</p>
-        </section>
-
-        <section class="skills-section" id="skills-section">
-            <h3 class="section-title">Skill Breakdown</h3>
-            <p class="text-sm text-secondary">From all practice tests — keeps your weak area analysis</p>
-            <div id="skills-grid" class="skills-grid">
-                <div class="text-sm text-muted">Complete tests to build your skill profile.</div>
-            </div>
-        </section>
-
-        <section class="history-section">
-            <h3 class="section-title">Recent Tests</h3>
-            <div class="history-list" id="history-list">
-                <div class="text-sm text-muted" style="padding:16px;">No practice tests yet.</div>
+        <!-- SKILLS SECTION -->
+        <section id="section-skills" class="app-section hidden">
+            <div class="section-pad">
+                <h2 class="title-2" style="margin-bottom:4px;">Skill Breakdown</h2>
+                <p class="text-sm text-secondary" style="margin-bottom:16px;">Weak-area analysis from all practice tests</p>
+                <div class="stats-grid" style="margin-bottom:20px;">
+                    <div class="stat-card">
+                        <div class="stat-label">Average</div>
+                        <div class="stat-value success" id="avg-score-display">—</div>
+                        <div class="stat-sub" id="avg-score-sub">No tests yet</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Top Weakness</div>
+                        <div class="stat-value" style="font-size:16px;" id="top-weakness-display">—</div>
+                        <div class="stat-sub" id="top-weakness-sub">After first test</div>
+                    </div>
+                </div>
+                <div id="skills-grid" class="skills-grid">
+                    <div class="text-sm text-muted">Complete tests to build your skill profile.</div>
+                </div>
             </div>
         </section>
     </main>
 
+    <!-- ========== TEST ENGINE (side-by-side) ========== -->
     <div id="test-view" class="view-container hidden">
         <header class="test-header">
             <div class="header-left">
@@ -161,8 +268,11 @@
         </header>
 
         <section class="test-body">
-            <div class="split-screen" id="rw-layout">
-                <article class="passage-pane" id="passage-container"></article>
+            <!-- Always side-by-side: passage LEFT, question+options RIGHT -->
+            <div class="split-screen side-by-side" id="rw-layout">
+                <article class="passage-pane" id="passage-container">
+                    <p class="text-secondary text-sm">Passage appears here</p>
+                </article>
                 <div class="question-pane">
                     <div class="question-text" id="question-container"></div>
                     <div id="options-container"></div>
@@ -184,6 +294,7 @@
         </footer>
     </div>
 
+    <!-- ========== RESULTS ========== -->
     <main id="results-view" class="view-container hidden">
         <header class="results-header">
             <h2>Results</h2>
